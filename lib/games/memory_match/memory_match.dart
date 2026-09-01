@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'memory_card.dart';
+import '../../services/database_service.dart';
 
 class MemoryMatchGame extends StatefulWidget {
   const MemoryMatchGame({super.key});
@@ -161,7 +162,9 @@ class _MemoryMatchGameState extends State<MemoryMatchGame>
           const Duration(milliseconds: 500),
           () {
             if (mounted) {
-              showLevelCompleteDialog();
+                final GameResult result = createGameResult();
+                DatabaseService().saveGameResult(result);
+                showLevelCompleteDialog(result);
             }
           },
         );
