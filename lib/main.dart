@@ -5,6 +5,7 @@ import 'firebase_options.dart';
 import 'services/auth_service.dart';
 import 'services/database_service.dart';
 import 'models/game_result.dart';
+import 'reminders/reminder_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -14,6 +15,7 @@ void main() async {
   FirebaseFirestore.instance.settings = const Settings(
     persistenceEnabled: true,
   );
+  await ReminderService().init();
   runApp(const MyApp());
 }
 
@@ -37,6 +39,7 @@ class TestPage extends StatefulWidget {
 class _TestPageState extends State<TestPage> {
   final AuthService _authService = AuthService();
   final DatabaseService _dbService = DatabaseService();
+  final ReminderService _reminderService = ReminderService();
   String _result = 'Not tested yet';
   int _saveCount = 0;
 
@@ -53,11 +56,9 @@ class _TestPageState extends State<TestPage> {
   void _testSaveGameResult() {
     _saveCount++;
     final currentSave = _saveCount;
-
     setState(() {
       _result = 'SAVE #$currentSave QUEUED (will sync when online)';
     });
-
     final result = GameResult(
       userId: 'testuser1',
       gameName: 'pattern',
@@ -66,10 +67,6 @@ class _TestPageState extends State<TestPage> {
       difficulty: 1,
       timeTakenSeconds: 45,
     );
-
-    // Fire and forget: don't block the UI waiting for server confirmation.
-    // Firestore queues this locally if offline and syncs automatically
-    // once connectivity returns.
     _dbService.saveGameResult(result).then((_) {
       if (mounted) {
         setState(() {
@@ -82,6 +79,13 @@ class _TestPageState extends State<TestPage> {
           _result = 'SAVE #$currentSave ERROR: $e';
         });
       }
+    });
+  }
+
+  void _testNotification() {
+    _reminderService.fireTestNotification('Vitamin D');
+    setState(() {
+      _result = 'Notification fired - check your notification shade';
     });
   }
 
@@ -101,6 +105,11 @@ class _TestPageState extends State<TestPage> {
             ElevatedButton(
               onPressed: _testSaveGameResult,
               child: const Text('Save Test GameResult'),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _testNotification,
+              child: const Text('Test Notification'),
             ),
             const SizedBox(height: 20),
             Padding(
