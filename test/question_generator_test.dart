@@ -1,14 +1,21 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mindcare/ai/question_generator.dart';
+import 'package:mindcare/models/patient.dart';
 
 void main() {
   test('generates personalized questions from patient information', () {
-    final patient = PatientInfo(
+    final patient = Patient(
+      id: 'test1',
       name: 'Asha',
-      daughter: 'Priya',
-      hobby: 'Gardening',
-      favoriteFood: 'Pani Puri',
-      pet: 'Bruno',
+      age: 72,
+      language: 'en',
+      caregiverId: 'caregiver1',
+      personalInfo: PersonalInfo(
+        daughter: 'Priya',
+        hobby: 'Gardening',
+        favoriteFood: 'Pani Puri',
+        pet: 'Bruno',
+      ),
     );
 
     final generator = PersonalizedQuestionGenerator();
@@ -22,7 +29,10 @@ void main() {
       "What is Asha's daughter's name?",
     );
 
-    expect(questions[0].correctAnswer, 'Priya');
+    expect(
+      questions[0].correctAnswer,
+      'Priya',
+    );
 
     expect(
       questions[1].correctAnswer,

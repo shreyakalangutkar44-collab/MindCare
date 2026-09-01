@@ -1,18 +1,4 @@
-class PatientInfo {
-  final String name;
-  final String daughter;
-  final String hobby;
-  final String favoriteFood;
-  final String pet;
-
-  PatientInfo({
-    required this.name,
-    required this.daughter,
-    required this.hobby,
-    required this.favoriteFood,
-    required this.pet,
-  });
-}
+import '../models/patient.dart';
 
 class PersonalizedQuestion {
   final String question;
@@ -27,50 +13,57 @@ class PersonalizedQuestion {
 }
 
 class PersonalizedQuestionGenerator {
-  List<PersonalizedQuestion> generateQuestions(PatientInfo patient) {
+  List<PersonalizedQuestion> generateQuestions(Patient patient) {
+    final personalInfo = patient.personalInfo;
+
+    final daughter = personalInfo.daughter ?? 'Unknown';
+    final hobby = personalInfo.hobby ?? 'Unknown';
+    final favoriteFood = personalInfo.favoriteFood ?? 'Unknown';
+    final pet = personalInfo.pet ?? 'Unknown';
+
     return [
       PersonalizedQuestion(
         question: "What is ${patient.name}'s daughter's name?",
         options: [
-          patient.daughter,
-          "Anita",
-          "Meena",
-          "Riya",
+          daughter,
+          'Anita',
+          'Meena',
+          'Riya',
         ],
-        correctAnswer: patient.daughter,
+        correctAnswer: daughter,
       ),
 
       PersonalizedQuestion(
         question: "What is ${patient.name}'s hobby?",
         options: [
-          "Cooking",
-          patient.hobby,
-          "Dancing",
-          "Painting",
+          'Cooking',
+          hobby,
+          'Dancing',
+          'Painting',
         ],
-        correctAnswer: patient.hobby,
+        correctAnswer: hobby,
       ),
 
       PersonalizedQuestion(
         question: "What is ${patient.name}'s favorite food?",
         options: [
-          "Pizza",
-          "Biryani",
-          patient.favoriteFood,
-          "Sandwich",
+          'Pizza',
+          'Biryani',
+          favoriteFood,
+          'Sandwich',
         ],
-        correctAnswer: patient.favoriteFood,
+        correctAnswer: favoriteFood,
       ),
 
       PersonalizedQuestion(
         question: "What is the name of ${patient.name}'s pet?",
         options: [
-          patient.pet,
-          "Rocky",
-          "Milo",
-          "Leo",
+          pet,
+          'Rocky',
+          'Milo',
+          'Leo',
         ],
-        correctAnswer: patient.pet,
+        correctAnswer: pet,
       ),
     ];
   }
