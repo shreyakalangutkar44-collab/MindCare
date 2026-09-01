@@ -5,6 +5,7 @@ import 'firebase_options.dart';
 import 'services/auth_service.dart';
 import 'services/database_service.dart';
 import 'models/game_result.dart';
+import 'models/patient.dart';
 import 'reminders/reminder_service.dart';
 import 'games/memory_match/memory_match.dart';
 
@@ -126,7 +127,9 @@ class _TestPageState extends State<TestPage> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const MemoryMatchGame(),
+                    builder: (context) => MemoryMatchGame(
+                      patient: Patient.dummy(),
+                    ),
                   ),
                 );
               },
