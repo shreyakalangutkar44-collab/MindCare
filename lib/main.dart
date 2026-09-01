@@ -6,6 +6,7 @@ import 'services/auth_service.dart';
 import 'services/database_service.dart';
 import 'models/game_result.dart';
 import 'reminders/reminder_service.dart';
+import 'games/memory_match/memory_match.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,10 +22,18 @@ void main() async {
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'MindCare Test',
+      title: 'MindCare',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.deepPurple,
+        ),
+        useMaterial3: true,
+      ),
       home: const TestPage(),
     );
   }
@@ -110,6 +119,18 @@ class _TestPageState extends State<TestPage> {
             ElevatedButton(
               onPressed: _testNotification,
               child: const Text('Test Notification'),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const MemoryMatchGame(),
+                  ),
+                );
+              },
+              child: const Text('Play Memory Match'),
             ),
             const SizedBox(height: 20),
             Padding(
