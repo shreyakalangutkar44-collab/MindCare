@@ -1,6 +1,10 @@
 import 'dart:math';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+
+import '../../models/game_result.dart';
+import '../../services/database_service.dart';
 import 'memory_card.dart';
 
 class MemoryMatchGame extends StatefulWidget {
@@ -18,7 +22,7 @@ class _MemoryMatchGameState extends State<MemoryMatchGame>
 
   int currentLevel = 1;
 
-  // Number of cards for each level.
+  // Number of cards at each difficulty level.
   // Level 1 = 6 cards = 3 pairs.
   final Map<int, int> cardsPerLevel = {
     1: 6,
@@ -51,6 +55,12 @@ class _MemoryMatchGameState extends State<MemoryMatchGame>
 
   bool isChecking = false;
 
+  // Timer used for GameResult.
+  final Stopwatch gameTimer = Stopwatch();
+
+  // Prevent saving the same completed level more than once.
+  bool resultSaved = false;
+
   // ============================================================
   // INITIALIZE GAME
   // ============================================================
@@ -62,22 +72,23 @@ class _MemoryMatchGameState extends State<MemoryMatchGame>
   }
 
   void initializeGame() {
-    int numberOfCards = cardsPerLevel[currentLevel]!;
+    final int numberOfCards = cardsPerLevel[currentLevel]!;
+    final int numberOfPairs = numberOfCards ~/ 2;
 
-    int numberOfPairs = numberOfCards ~/ 2;
-
-    // Take only the number of pairs required for this level.
-    List<String> selectedValues =
+    // Select the required number of pairs.
+    final List<String> selectedValues =
         allCardValues.take(numberOfPairs).toList();
 
     // Create two cards for every value.
-    List<String> gameValues = [
+    final List<String> gameValues = [
       ...selectedValues,
       ...selectedValues,
     ];
 
+    // Shuffle cards.
     gameValues.shuffle(Random());
 
+    // Create MemoryCard objects.
     cards = List.generate(
       gameValues.length,
       (index) => MemoryCard(
@@ -90,6 +101,12 @@ class _MemoryMatchGameState extends State<MemoryMatchGame>
     matchedPairs = 0;
     firstCardIndex = null;
     isChecking = false;
+    resultSaved = false;
+
+    // Restart timer for every new level/game.
+    gameTimer
+      ..reset()
+      ..start();
   }
 
   // ============================================================
@@ -100,6 +117,47 @@ class _MemoryMatchGameState extends State<MemoryMatchGame>
     setState(() {
       initializeGame();
     });
+  }
+
+  // ============================================================
+  // CREATE COMMON GAME RESULT
+  // ============================================================
+
+  GameResult createGameResult() {
+    final User? user = FirebaseAuth.instance.currentUser;
+
+    final int totalPairs = cards.length ~/ 2;
+
+    return GameResult(
+      userId: user?.uid ?? 'unknown',
+      gameName: 'Memory Match',
+      score: matchedPairs,
+      totalQuestions: totalPairs,
+      difficulty: currentLevel,
+      timeTakenSeconds: gameTimer.elapsed.inSeconds,
+    );
+  }
+
+  // ============================================================
+  // SAVE GAME RESULT
+  // ============================================================
+
+  Future<void> saveGameResult() async {
+    // Prevent duplicate result submission.
+    if (resultSaved) return;
+
+    resultSaved = true;
+
+    gameTimer.stop();
+
+    final GameResult result = createGameResult();
+
+    try {
+      await DatabaseService().saveGameResult(result);
+    } catch (e) {
+      // Allow the user to continue even if saving fails.
+      debugPrint('Error saving Memory Match result: $e');
+    }
   }
 
   // ============================================================
@@ -115,7 +173,7 @@ class _MemoryMatchGameState extends State<MemoryMatchGame>
       return;
     }
 
-    // Flip the selected card.
+    // Flip selected card.
     setState(() {
       cards[index].isFlipped = true;
     });
@@ -155,16 +213,24 @@ class _MemoryMatchGameState extends State<MemoryMatchGame>
         isChecking = false;
       });
 
-      // Check if level is complete.
+      // ----------------------------------------------------------
+      // LEVEL COMPLETE
+      // ----------------------------------------------------------
+
       if (matchedPairs == cards.length ~/ 2) {
-        Future.delayed(
+        await Future.delayed(
           const Duration(milliseconds: 500),
-          () {
-            if (mounted) {
-              showLevelCompleteDialog();
-            }
-          },
         );
+
+        if (!mounted) return;
+
+        // Save the common GameResult.
+        await saveGameResult();
+
+        if (!mounted) return;
+
+        // Show completion dialog.
+        showLevelCompleteDialog();
       }
     }
 
@@ -190,11 +256,11 @@ class _MemoryMatchGameState extends State<MemoryMatchGame>
   }
 
   // ============================================================
-  // LEVEL COMPLETE
+  // LEVEL COMPLETE DIALOG
   // ============================================================
 
   void showLevelCompleteDialog() {
-    bool hasNextLevel = currentLevel < cardsPerLevel.length;
+    final bool hasNextLevel = currentLevel < cardsPerLevel.length;
 
     showDialog(
       context: context,
@@ -216,8 +282,12 @@ class _MemoryMatchGameState extends State<MemoryMatchGame>
           ),
           content: Text(
             hasNextLevel
-                ? 'You completed Level $currentLevel!\n\nMoves: $moves'
-                : 'You completed all levels!\n\nMoves: $moves',
+                ? 'You completed Level $currentLevel!\n\n'
+                    'Moves: $moves\n'
+                    'Pairs matched: $matchedPairs'
+                : 'You completed all levels!\n\n'
+                    'Moves: $moves\n'
+                    'Pairs matched: $matchedPairs',
             textAlign: TextAlign.center,
             style: const TextStyle(
               color: Color(0xFF1C1C15),
@@ -243,9 +313,9 @@ class _MemoryMatchGameState extends State<MemoryMatchGame>
                     borderRadius: BorderRadius.circular(30),
                   ),
                 ),
-                child: Text(
+                child: const Text(
                   'Next Level',
-                  style: const TextStyle(fontSize: 18),
+                  style: TextStyle(fontSize: 18),
                 ),
               ),
 
@@ -274,12 +344,16 @@ class _MemoryMatchGameState extends State<MemoryMatchGame>
   // ============================================================
 
   void showHint() {
+    // Don't show hint while two cards are being checked.
     if (isChecking) return;
 
-    Map<String, List<int>> groups = {};
+    // Don't interfere with a currently selected first card.
+    if (firstCardIndex != null) return;
+
+    final Map<String, List<int>> groups = {};
 
     for (int i = 0; i < cards.length; i++) {
-      if (!cards[i].isMatched) {
+      if (!cards[i].isMatched && !cards[i].isFlipped) {
         groups.putIfAbsent(cards[i].value, () => []);
         groups[cards[i].value]!.add(i);
       }
@@ -287,8 +361,8 @@ class _MemoryMatchGameState extends State<MemoryMatchGame>
 
     for (final group in groups.values) {
       if (group.length >= 2) {
-        int first = group[0];
-        int second = group[1];
+        final int first = group[0];
+        final int second = group[1];
 
         setState(() {
           cards[first].isFlipped = true;
@@ -344,15 +418,14 @@ class _MemoryMatchGameState extends State<MemoryMatchGame>
     return Scaffold(
       backgroundColor: const Color(0xFFFDF9EE),
 
-      // ========================================================
+      // ==========================================================
       // TOP BAR
-      // ========================================================
+      // ==========================================================
 
       appBar: AppBar(
         backgroundColor: const Color(0xFFFDF9EE),
         elevation: 0,
         automaticallyImplyLeading: false,
-
         title: Row(
           children: [
             // EXIT BUTTON
@@ -416,9 +489,9 @@ class _MemoryMatchGameState extends State<MemoryMatchGame>
         ),
       ),
 
-      // ========================================================
+      // ==========================================================
       // BODY
-      // ========================================================
+      // ==========================================================
 
       body: SafeArea(
         child: LayoutBuilder(
@@ -473,20 +546,15 @@ class _MemoryMatchGameState extends State<MemoryMatchGame>
                         physics:
                             const NeverScrollableScrollPhysics(),
                         shrinkWrap: true,
-
                         itemCount: cards.length,
-
                         gridDelegate:
                             SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: columns,
-
                           crossAxisSpacing: 12,
                           mainAxisSpacing: 12,
-
                           childAspectRatio:
                               cards.length <= 6 ? 1.05 : 0.9,
                         ),
-
                         itemBuilder: (context, index) {
                           return MemoryCardWidget(
                             card: cards[index],
@@ -526,8 +594,7 @@ class _MemoryMatchGameState extends State<MemoryMatchGame>
                               color: Color(0xFF51634E),
                               width: 2,
                             ),
-                            minimumSize:
-                                const Size(0, 58),
+                            minimumSize: const Size(0, 58),
                             shape: RoundedRectangleBorder(
                               borderRadius:
                                   BorderRadius.circular(30),
@@ -557,8 +624,7 @@ class _MemoryMatchGameState extends State<MemoryMatchGame>
                             backgroundColor:
                                 const Color(0xFF974725),
                             foregroundColor: Colors.white,
-                            minimumSize:
-                                const Size(0, 58),
+                            minimumSize: const Size(0, 58),
                             shape: RoundedRectangleBorder(
                               borderRadius:
                                   BorderRadius.circular(30),
@@ -624,7 +690,6 @@ class MemoryCardWidget extends StatefulWidget {
 class _MemoryCardWidgetState extends State<MemoryCardWidget>
     with SingleTickerProviderStateMixin {
   late AnimationController controller;
-
   late Animation<double> animation;
 
   @override
@@ -672,17 +737,13 @@ class _MemoryCardWidgetState extends State<MemoryCardWidget>
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: widget.onTap,
-
       child: AnimatedBuilder(
         animation: animation,
-
         builder: (context, child) {
-          final double angle =
-              animation.value * pi;
+          final double angle = animation.value * pi;
 
           return Transform(
             alignment: Alignment.center,
-
             transform: Matrix4.identity()
               ..setEntry(
                 3,
@@ -690,15 +751,11 @@ class _MemoryCardWidgetState extends State<MemoryCardWidget>
                 0.001,
               )
               ..rotateY(angle),
-
             child: angle < pi / 2
                 ? buildCardBack()
                 : Transform(
                     alignment: Alignment.center,
-
-                    transform:
-                        Matrix4.rotationY(pi),
-
+                    transform: Matrix4.rotationY(pi),
                     child: buildCardFront(),
                   ),
           );
@@ -715,15 +772,11 @@ class _MemoryCardWidgetState extends State<MemoryCardWidget>
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFFB8CCB3),
-
-        borderRadius:
-            BorderRadius.circular(16),
-
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: const Color(0xFFD3E8CE),
           width: 2,
         ),
-
         boxShadow: const [
           BoxShadow(
             blurRadius: 5,
@@ -732,7 +785,6 @@ class _MemoryCardWidgetState extends State<MemoryCardWidget>
           ),
         ],
       ),
-
       child: const Center(
         child: Text(
           '❓',
@@ -752,18 +804,13 @@ class _MemoryCardWidgetState extends State<MemoryCardWidget>
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFFFDF9EE),
-
-        borderRadius:
-            BorderRadius.circular(16),
-
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: widget.card.isMatched
               ? const Color(0xFF51634E)
               : const Color(0xFFC4C8BF),
-
           width: 2,
         ),
-
         boxShadow: const [
           BoxShadow(
             blurRadius: 5,
@@ -772,11 +819,9 @@ class _MemoryCardWidgetState extends State<MemoryCardWidget>
           ),
         ],
       ),
-
       child: Center(
         child: Text(
           widget.card.value,
-
           style: const TextStyle(
             fontSize: 52,
           ),
