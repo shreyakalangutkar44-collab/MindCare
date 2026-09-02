@@ -9,6 +9,7 @@ import 'reminders/reminder_service.dart';
 import 'games/memory_match/memory_match.dart';
 import 'voice/voice_diary.dart';
 import 'voice/voice_recall.dart';
+import 'games/pattern_match_game.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -135,6 +136,29 @@ class _TestPageState extends State<TestPage> {
                 },
                 child: const Text('Play Memory Match'),
               ),
+              const SizedBox(height: 20),
+
+              // ========== PATTERN MATCH BUTTON ==========
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF51634E),
+                  padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 16),
+                ),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const PatternMatchGame(),
+                    ),
+                  );
+                },
+                child: const Text(
+                  'Play Pattern Match',
+                  style: TextStyle(fontSize: 18, color: Colors.white),
+                ),
+              ),
+              // ==========================================
+
               const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: () {
