@@ -1,193 +1,286 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/auth_service.dart';
+import 'home_screen.dart';
+import '../app_navigation.dart';
 
-class MyWidget extends StatelessWidget {
-  const MyWidget({super.key});
+class RegisterScreen extends StatefulWidget {
+  const RegisterScreen({super.key});
+
+  @override
+  State<RegisterScreen> createState() => _RegisterScreenState();
+}
+
+class _RegisterScreenState extends State<RegisterScreen> {
+  final AuthService _authService = AuthService();
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _ageController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _confirmPasswordController = TextEditingController();
+
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
+  bool _isLoading = false;
+  String? _errorMessage;
+  String _selectedRole = 'patient';
+
+  Future<void> _handleSignup() async {
+    if (_nameController.text.trim().isEmpty ||
+        _emailController.text.trim().isEmpty ||
+        _passwordController.text.trim().isEmpty) {
+      setState(() {
+        _errorMessage = 'Please fill in name, email, and password.';
+      });
+      return;
+    }
+
+    if (_passwordController.text.trim() != _confirmPasswordController.text.trim()) {
+      setState(() {
+        _errorMessage = 'Passwords do not match.';
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    final user = await _authService.signUp(
+      _emailController.text.trim(),
+      _passwordController.text.trim(),
+    );
+
+    if (!mounted) return;
+
+    if (user != null) {
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+        'name': _nameController.text.trim(),
+        'email': _emailController.text.trim(),
+        'phone': _phoneController.text.trim(),
+        'age': _ageController.text.trim(),
+        'role': _selectedRole,
+      });
+
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+      });
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => _selectedRole == 'caregiver'
+              ? const AppNavigation()
+              : const HomeScreen(),
+        ),
+      );
+    } else {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Sign up failed. Try a different email or check your password (min 6 characters).';
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _ageController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      type: MaterialType.transparency,
-      child: SingleChildScrollView(
-        child: Container(
-                  color: Color(0xFFFDF9EE),
-                  child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.bottomLeft, end: Alignment.topRight, colors: [Color(0x00000000), Color(0x00000000), Color(0x33FFFFFF), Color(0x33FFFFFF)])),
-                              child: SizedBox.shrink(),
-                            ),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Image.network(
-                                  "https://lh3.googleusercontent.com/aida/AEtjO1Vnh0XxZj92-VSJdQZpEKlLMG1RePspw3AV4L-URkYdoyBDRUG7JIICtPpdCgrVTXupx5AjIfnEZSRCf4atiT4LhlqSQ7dckGEo8dIli4Ust-PtM8YoYV_5qFBNpZQGh_RXTmRM-8ba89Eutd-S35jxH1qZlEEEpFlZ2LCj9jmn426twQX8Clvps6-X7QXtw7zGkymwnILd4tLM7rNKnYQIfJFoeLcgLI0YCUSdm9DJ81r0gOJUzfT4dQ",
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) => Container(
-                                    height: 180.0,
-                                    color: Color(0xFFEEEEEE),
-                                    alignment: Alignment.center,
-                                    child: Icon(Icons.broken_image, color: Color(0xFF9E9E9E)),
-                                  ),
-                                ),
-                                Text(
-                                  "Aalamban MindCare",
-                                  style: TextStyle(fontSize: 32.0, fontWeight: FontWeight.w700),
-                                ),
-                                Text(
-                                  "Your daily cognitive companion",
-                                  style: TextStyle(fontSize: 16.0),
-                                ),
-                              ],
-                            ),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text("Select your role"),
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Radio<String>(
-                                              value: "patient",
-                                              groupValue: null,
-                                              onChanged: (v) {},
-                                            ),
-                                            Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                Text("elderly"),
-                                                Text("Patient"),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                        Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Radio<String>(
-                                              value: "caregiver",
-                                              groupValue: null,
-                                              onChanged: (v) {},
-                                            ),
-                                            Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                Text("volunteer_activism"),
-                                                Text("Caregiver"),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text("Full Name"),
-                                    TextField(
-                                      decoration: InputDecoration(
-                                        border: OutlineInputBorder(),
-                                        hintText: "Enter your full name",
-                                        labelText: "fullName",
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text("Phone Number"),
-                                    TextField(
-                                      decoration: InputDecoration(
-                                        border: OutlineInputBorder(),
-                                        hintText: "Enter phone number",
-                                        labelText: "phone",
-                                      ),
-                                      keyboardType: TextInputType.phone,
-                                    ),
-                                  ],
-                                ),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text("Password"),
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        TextField(
-                                          decoration: InputDecoration(
-                                            border: OutlineInputBorder(),
-                                            hintText: "Create a password",
-                                            labelText: "password",
-                                          ),
-                                          obscureText: true,
-                                        ),
-                                        ElevatedButton(
-                                          onPressed: () {},
-                                          child: Text("visibility"),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text("Confirm Password"),
-                                    TextField(
-                                      decoration: InputDecoration(
-                                        border: OutlineInputBorder(),
-                                        hintText: "Confirm your password",
-                                        labelText: "confirmPassword",
-                                      ),
-                                      obscureText: true,
-                                    ),
-                                  ],
-                                ),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text("Age"),
-                                    TextField(
-                                      decoration: InputDecoration(
-                                        border: OutlineInputBorder(),
-                                        hintText: "Enter age",
-                                        labelText: "dynamicInput",
-                                      ),
-                                      keyboardType: TextInputType.number,
-                                    ),
-                                  ],
-                                ),
-                                ElevatedButton(
-                                  onPressed: () {},
-                                  child: Text("Create Account\n                    arrow_forward"),
-                                ),
-                              ],
-                            ),
-                            Text(
-                                  "Already have an account? \n                    Login",
-                                  style: TextStyle(fontSize: 16.0),
-                                ),
-                          ],
-                        ),
-                    ElevatedButton(
-                      onPressed: () {},
-                      child: Text("mic"),
+    return Scaffold(
+      backgroundColor: const Color(0xFFFDF9EE),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 10),
+              const Text(
+                "MindCare",
+                style: TextStyle(fontSize: 30.0, fontWeight: FontWeight.w700),
+              ),
+              const Text(
+                "Your daily cognitive companion",
+                style: TextStyle(fontSize: 16.0),
+              ),
+              const SizedBox(height: 24),
+
+              const Text("Select your role", style: TextStyle(fontWeight: FontWeight.w600)),
+              Row(
+                children: [
+                  Expanded(
+                    child: RadioListTile<String>(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Patient'),
+                      value: 'patient',
+                      groupValue: _selectedRole,
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedRole = value!;
+                        });
+                      },
                     ),
-                  ],
+                  ),
+                  Expanded(
+                    child: RadioListTile<String>(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Caregiver'),
+                      value: 'caregiver',
+                      groupValue: _selectedRole,
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedRole = value!;
+                        });
+                      },
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 10),
+              const Text("Full Name"),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _nameController,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  hintText: "Enter your full name",
                 ),
+              ),
+
+              const SizedBox(height: 16),
+              const Text("Email"),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  hintText: "Enter your email (used to log in)",
                 ),
+              ),
+
+              const SizedBox(height: 16),
+              const Text("Phone Number"),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _phoneController,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  hintText: "Enter phone number",
+                ),
+              ),
+
+              const SizedBox(height: 16),
+              const Text("Age"),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _ageController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  hintText: "Enter age",
+                ),
+              ),
+
+              const SizedBox(height: 16),
+              const Text("Password"),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _passwordController,
+                obscureText: _obscurePassword,
+                decoration: InputDecoration(
+                  border: const OutlineInputBorder(),
+                  hintText: "Create a password (min 6 characters)",
+                  suffixIcon: IconButton(
+                    icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
+                    onPressed: () {
+                      setState(() {
+			                        _obscurePassword = !_obscurePassword;
+                      });
+                    },
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+              const Text("Confirm Password"),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _confirmPasswordController,
+                obscureText: _obscureConfirmPassword,
+                decoration: InputDecoration(
+                  border: const OutlineInputBorder(),
+                  hintText: "Confirm your password",
+                  suffixIcon: IconButton(
+                    icon: Icon(_obscureConfirmPassword ? Icons.visibility_off : Icons.visibility),
+                    onPressed: () {
+                      setState(() {
+                        _obscureConfirmPassword = !_obscureConfirmPassword;
+                      });
+                    },
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 20),
+              if (_errorMessage != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12.0),
+                  child: Text(
+                    _errorMessage!,
+                    style: const TextStyle(color: Colors.red),
+                  ),
+                ),
+
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _handleSignup,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF79301C),
+                    foregroundColor: const Color(0xFFFFFFFF),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Text("Create Account"),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+              Center(
+                child: TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                  child: const Text("Already have an account? Log in"),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

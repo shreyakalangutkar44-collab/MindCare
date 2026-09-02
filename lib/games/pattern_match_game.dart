@@ -15,7 +15,6 @@ class _PatternMatchGameState extends State<PatternMatchGame> {
   final DatabaseService _dbService = DatabaseService();
   final AuthService _authService = AuthService();
 
-  // Icons matching your HTML (eco, star, circle, square...)
   final List<IconData> allIcons = [
     Icons.eco,
     Icons.star,
@@ -30,15 +29,14 @@ class _PatternMatchGameState extends State<PatternMatchGame> {
   IconData? correctAnswer;
 
   int currentRound = 1;
-  final int totalRounds = 5;
+  final int totalRounds = 4; // ← Changed to 4 rounds
   int score = 0;
   bool showFeedback = false;
   bool isCorrect = false;
   bool isSaving = false;
-
   DateTime? _startTime;
 
-  // Exact colors from your HTML / design system
+  // Colors
   static const Color bgColor = Color(0xFFFDF9EE);
   static const Color primary = Color(0xFF51634E);
   static const Color secondary = Color(0xFF974725);
@@ -47,6 +45,15 @@ class _PatternMatchGameState extends State<PatternMatchGame> {
   static const Color tertiaryFixed = Color(0xFFFFDEA4);
   static const Color tertiary = Color(0xFF765A1F);
   static const Color progressColor = Color(0xFFE7C17C);
+
+  // Motivating messages for wrong answers
+  final List<String> motivatingMessages = [
+    "Good try! You can do it!",
+    "Almost! Keep going!",
+    "Nice effort! Try the next one!",
+    "You're learning! Let's continue!",
+    "Don't worry, next one will be better!",
+  ];
 
   @override
   void initState() {
@@ -58,21 +65,34 @@ class _PatternMatchGameState extends State<PatternMatchGame> {
   void _generateNewRound() {
     final random = Random();
 
+    // Difficulty increases with rounds
+    int sequenceLength;
+    if (currentRound <= 2) {
+      sequenceLength = 3; // Easy
+    } else {
+      sequenceLength = 4; // Harder
+    }
+
+    // Create a repeating pattern (A B A B ...)
     final iconA = allIcons[random.nextInt(allIcons.length)];
     IconData iconB;
     do {
       iconB = allIcons[random.nextInt(allIcons.length)];
     } while (iconB == iconA);
 
-    // Pattern: A B A → next is B
-    sequence = [iconA, iconB, iconA];
-    correctAnswer = iconB;
+    sequence = [];
+    for (int i = 0; i < sequenceLength - 1; i++) {
+      sequence.add(i % 2 == 0 ? iconA : iconB);
+    }
 
+    // Correct answer is the next one in the pattern
+    correctAnswer = (sequenceLength - 1) % 2 == 0 ? iconA : iconB;
+
+    // Create 4 options
     Set<IconData> optionSet = {correctAnswer!};
     while (optionSet.length < 4) {
       optionSet.add(allIcons[random.nextInt(allIcons.length)]);
     }
-
     options = optionSet.toList()..shuffle();
 
     setState(() {
@@ -89,7 +109,7 @@ class _PatternMatchGameState extends State<PatternMatchGame> {
       if (correct) score++;
     });
 
-    Future.delayed(const Duration(milliseconds: 1100), () {
+    Future.delayed(const Duration(milliseconds: 1300), () {
       if (!mounted) return;
       if (currentRound < totalRounds) {
         setState(() {
@@ -104,7 +124,6 @@ class _PatternMatchGameState extends State<PatternMatchGame> {
 
   Future<void> _finishGame() async {
     setState(() => isSaving = true);
-
     final timeTaken = DateTime.now().difference(_startTime!).inSeconds;
     final user = _authService.currentUser;
 
@@ -151,8 +170,8 @@ class _PatternMatchGameState extends State<PatternMatchGame> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             ),
             onPressed: () {
-              Navigator.pop(context); // close dialog
-              Navigator.pop(context); // go back
+              Navigator.pop(context);
+              Navigator.pop(context);
             },
             child: const Text("Back", style: TextStyle(fontSize: 18, color: Colors.white)),
           ),
@@ -208,75 +227,70 @@ class _PatternMatchGameState extends State<PatternMatchGame> {
         ],
       ),
       body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Column(
           children: [
             const SizedBox(height: 12),
 
-            // Round + Progress (matches HTML)
+            // Round + Progress
             Text(
               "Round $currentRound of $totalRounds",
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             ClipRRect(
               borderRadius: BorderRadius.circular(20),
               child: LinearProgressIndicator(
                 value: currentRound / totalRounds,
-                minHeight: 14,
+                minHeight: 12,
                 backgroundColor: surfaceVariant,
                 color: progressColor,
               ),
             ),
-
-            const SizedBox(height: 28),
+            const SizedBox(height: 24),
 
             // Instruction
             const Text(
               "What comes next?",
               style: TextStyle(
-                fontSize: 28,
+                fontSize: 26,
                 fontWeight: FontWeight.bold,
                 color: primary,
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Sequence
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+              decoration: BoxDecoration(
+                color: surfaceContainer,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: surfaceVariant, width: 2),
+              ),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    ...sequence.map((icon) => _buildSequenceItem(icon)),
+                    _buildQuestionItem(),
+                  ],
+                ),
               ),
             ),
 
             const SizedBox(height: 28),
 
-            // Sequence container (matches HTML card)
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 12),
-              decoration: BoxDecoration(
-                color: surfaceContainer,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: surfaceVariant, width: 2),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  ...sequence.map((icon) => _buildSequenceItem(icon)),
-                  _buildQuestionItem(),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 36),
-
-            // Options Grid
+            // Options
             if (!showFeedback && !isSaving)
               Expanded(
                 child: GridView.count(
                   crossAxisCount: 2,
-                  mainAxisSpacing: 16,
-                  crossAxisSpacing: 16,
-                  childAspectRatio: 1.15,
+                  mainAxisSpacing: 14,
+                  crossAxisSpacing: 14,
+                  childAspectRatio: 1.2,
                   children: options.map((icon) => _buildOptionButton(icon)).toList(),
                 ),
               ),
@@ -285,19 +299,25 @@ class _PatternMatchGameState extends State<PatternMatchGame> {
             if (showFeedback)
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(22),
-                margin: const EdgeInsets.only(bottom: 30),
+                padding: const EdgeInsets.all(20),
+                margin: const EdgeInsets.only(bottom: 20),
                 decoration: BoxDecoration(
-                  color: isCorrect ? Colors.green.shade100 : Colors.red.shade100,
+                  color: isCorrect ? Colors.green.shade50 : const Color(0xFFFFF3E0),
                   borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: isCorrect ? Colors.green.shade300 : const Color(0xFFFFCC80),
+                    width: 1.5,
+                  ),
                 ),
                 child: Text(
-                  isCorrect ? "Correct! Well done!" : "Try the next one!",
+                  isCorrect
+                      ? "Correct! Well done!"
+                      : motivatingMessages[Random().nextInt(motivatingMessages.length)],
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 24,
+                    fontSize: 22,
                     fontWeight: FontWeight.bold,
-                    color: isCorrect ? Colors.green.shade800 : Colors.red.shade800,
+                    color: isCorrect ? Colors.green.shade800 : const Color(0xFFEF6C00),
                   ),
                 ),
               ),
@@ -310,12 +330,9 @@ class _PatternMatchGameState extends State<PatternMatchGame> {
           ],
         ),
       ),
-
-      // Floating Voice Button (exact match to HTML FAB)
       floatingActionButton: FloatingActionButton(
         backgroundColor: secondary,
         onPressed: () {
-          // TODO: Connect to P4 Voice Assistant
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text("Voice assistant coming soon")),
           );
@@ -327,32 +344,32 @@ class _PatternMatchGameState extends State<PatternMatchGame> {
 
   Widget _buildSequenceItem(IconData icon) {
     return Container(
-      width: 78,
-      height: 78,
-      margin: const EdgeInsets.symmetric(horizontal: 7),
+      width: 64,
+      height: 64,
+      margin: const EdgeInsets.symmetric(horizontal: 5),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: surfaceVariant, width: 2),
       ),
-      child: Icon(icon, size: 42, color: secondary),
+      child: Icon(icon, size: 34, color: secondary),
     );
   }
 
   Widget _buildQuestionItem() {
     return Container(
-      width: 78,
-      height: 78,
-      margin: const EdgeInsets.symmetric(horizontal: 7),
+      width: 64,
+      height: 64,
+      margin: const EdgeInsets.symmetric(horizontal: 5),
       decoration: BoxDecoration(
         color: tertiaryFixed,
         shape: BoxShape.circle,
-        border: Border.all(color: tertiary, width: 3),
+        border: Border.all(color: tertiary, width: 2.5),
       ),
       child: const Center(
         child: Text(
-          "???",
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          "??",
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
       ),
     );
@@ -362,14 +379,14 @@ class _PatternMatchGameState extends State<PatternMatchGame> {
     return ElevatedButton(
       style: ElevatedButton.styleFrom(
         backgroundColor: Colors.white,
-        elevation: 4,
+        elevation: 3,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(16),
           side: const BorderSide(color: surfaceVariant, width: 2),
         ),
       ),
       onPressed: () => _checkAnswer(icon),
-      child: Icon(icon, size: 48, color: primary),
+      child: Icon(icon, size: 44, color: primary),
     );
   }
 }
