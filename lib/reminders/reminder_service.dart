@@ -1,3 +1,4 @@
+
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz_data;
@@ -9,15 +10,24 @@ class ReminderService {
       FlutterLocalNotificationsPlugin();
   final DatabaseService _db = DatabaseService();
 
-  Future<void> init() async {
-    tz_data.initializeTimeZones();
+Future<void> init() async {
+  tz_data.initializeTimeZones();
 
-    const androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
-    const initSettings = InitializationSettings(android: androidSettings);
+  const androidSettings =
+      AndroidInitializationSettings('@mipmap/ic_launcher');
 
-    await _notifications.initialize(initSettings);
-  }
+  const initSettings = InitializationSettings(
+    android: androidSettings,
+  );
+
+  await _notifications.initialize(initSettings);
+
+  final androidImplementation =
+      _notifications.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+
+  await androidImplementation?.requestNotificationsPermission();
+}
 
   Future<void> scheduleReminder(Reminder reminder) async {
     await _db.saveReminder(reminder);
@@ -43,6 +53,13 @@ class ReminderService {
         ),
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+
+      // ADDED: Required by the installed flutter_local_notifications version.
+      // This tells the plugin to interpret the scheduled TZDateTime
+      // as an absolute notification time.
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+
       matchDateTimeComponents: reminder.repeat == 'daily'
           ? DateTimeComponents.time
           : null,
@@ -55,11 +72,14 @@ class ReminderService {
 
   tz.TZDateTime _nextInstanceOfTime(int hour, int minute) {
     final now = tz.TZDateTime.now(tz.local);
+
     var scheduled =
         tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute);
+
     if (scheduled.isBefore(now)) {
       scheduled = scheduled.add(const Duration(days: 1));
     }
+
     return scheduled;
   }
 
@@ -79,3 +99,4 @@ class ReminderService {
     );
   }
 }
+
