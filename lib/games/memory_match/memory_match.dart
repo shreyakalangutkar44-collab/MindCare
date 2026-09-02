@@ -7,6 +7,7 @@ import '../../models/game_result.dart';
 import '../../services/database_service.dart';
 import 'memory_card.dart';
 
+
 class MemoryMatchGame extends StatefulWidget {
   const MemoryMatchGame({super.key});
 
@@ -213,6 +214,7 @@ class _MemoryMatchGameState extends State<MemoryMatchGame>
         isChecking = false;
       });
 
+
       // ----------------------------------------------------------
       // LEVEL COMPLETE
       // ----------------------------------------------------------
@@ -254,6 +256,7 @@ class _MemoryMatchGameState extends State<MemoryMatchGame>
       });
     }
   }
+
 
   // ============================================================
   // LEVEL COMPLETE DIALOG

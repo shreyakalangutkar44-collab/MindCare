@@ -1,3 +1,4 @@
+
 class AdaptiveDifficulty {
   int getNextDifficulty({
     required int currentDifficulty,
