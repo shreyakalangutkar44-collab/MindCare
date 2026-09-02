@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'speech_service.dart';
 import 'tts_service.dart';
+import 'language_service.dart';
 
 class VoiceDiaryScreen extends StatefulWidget {
   const VoiceDiaryScreen({super.key});
@@ -13,6 +14,7 @@ class VoiceDiaryScreen extends StatefulWidget {
 class _VoiceDiaryScreenState extends State<VoiceDiaryScreen> {
   final SpeechService _speechService = SpeechService();
   final TtsService _ttsService = TtsService();
+  final LanguageService _languageService = LanguageService.instance;
 
   String _diaryText = '';
   bool _isListening = false;
@@ -22,7 +24,14 @@ class _VoiceDiaryScreenState extends State<VoiceDiaryScreen> {
   @override
   void initState() {
     super.initState();
+    _languageService.addListener(_onLanguageChanged);
     _initializeSpeech();
+  }
+
+  void _onLanguageChanged() {
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   Future<void> _initializeSpeech() async {
@@ -35,7 +44,7 @@ class _VoiceDiaryScreenState extends State<VoiceDiaryScreen> {
     });
 
     await _speechService.startListening(
-      language: 'en-IN',
+      language: _languageService.speechLanguage,
       onResult: (text) {
         if (!mounted) {
           return;
@@ -63,8 +72,12 @@ class _VoiceDiaryScreenState extends State<VoiceDiaryScreen> {
   void _saveMemory() {
     if (_diaryText.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please speak something first.'),
+        SnackBar(
+          content: Text(
+            _languageService.isHindi
+                ? 'कृपया पहले कुछ बोलें।'
+                : 'Please speak something first.',
+          ),
         ),
       );
       return;
@@ -76,18 +89,30 @@ class _VoiceDiaryScreenState extends State<VoiceDiaryScreen> {
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Memory saved successfully!'),
+      SnackBar(
+        content: Text(
+          _languageService.isHindi
+              ? 'याद सफलतापूर्वक सेव हो गई!'
+              : 'Memory saved successfully!',
+        ),
       ),
     );
   }
 
   Future<void> _readMemory(String memory) async {
-    await _ttsService.speakEnglish(memory);
+    await _ttsService.speak(
+      memory,
+      language: _languageService.speechLanguage,
+    );
+  }
+
+  void _changeLanguage(String language) {
+    _languageService.setLanguage(language);
   }
 
   @override
   void dispose() {
+    _languageService.removeListener(_onLanguageChanged);
     _speechService.stopListening();
     _ttsService.stop();
     super.dispose();
@@ -95,12 +120,14 @@ class _VoiceDiaryScreenState extends State<VoiceDiaryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isHindi = _languageService.isHindi;
+
     return Scaffold(
       backgroundColor: const Color(0xFFFDF9EE),
       appBar: AppBar(
-        title: const Text(
-          'Voice Diary',
-          style: TextStyle(
+        title: Text(
+          isHindi ? 'वॉइस डायरी' : 'Voice Diary',
+          style: const TextStyle(
             color: Color(0xFF1C1C15),
             fontWeight: FontWeight.bold,
           ),
@@ -111,6 +138,26 @@ class _VoiceDiaryScreenState extends State<VoiceDiaryScreen> {
         iconTheme: const IconThemeData(
           color: Color(0xFF51634E),
         ),
+        actions: [
+          PopupMenuButton<String>(
+            icon: const Icon(
+              Icons.language,
+              color: Color(0xFF51634E),
+            ),
+            tooltip: 'Language',
+            onSelected: _changeLanguage,
+            itemBuilder: (context) => const [
+              PopupMenuItem<String>(
+                value: 'en',
+                child: Text('English'),
+              ),
+              PopupMenuItem<String>(
+                value: 'hi',
+                child: Text('हिन्दी'),
+              ),
+            ],
+          ),
+        ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -118,40 +165,36 @@ class _VoiceDiaryScreenState extends State<VoiceDiaryScreen> {
           child: Column(
             children: [
               const SizedBox(height: 15),
-
               const Icon(
                 Icons.menu_book,
                 size: 70,
                 color: Color(0xFF51634E),
               ),
-
               const SizedBox(height: 15),
-
-              const Text(
-                'Tell Me About Your Day',
+              Text(
+                isHindi
+                    ? 'मुझे अपने दिन के बारे में बताएं'
+                    : 'Tell Me About Your Day',
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 27,
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF1C1C15),
                 ),
               ),
-
               const SizedBox(height: 10),
-
-              const Text(
-                'Speak about your day, a memory, '
-                'or something special you want to remember.',
+              Text(
+                isHindi
+                    ? 'अपने दिन, किसी याद या किसी खास बात के बारे में बोलें जिसे आप याद रखना चाहते हैं।'
+                    : 'Speak about your day, a memory, or something special you want to remember.',
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 17,
                   height: 1.4,
                   color: Color(0xFF434841),
                 ),
               ),
-
               const SizedBox(height: 30),
-
               GestureDetector(
                 onTap: _isListening
                     ? _stopListening
@@ -179,13 +222,15 @@ class _VoiceDiaryScreenState extends State<VoiceDiaryScreen> {
                   ),
                 ),
               ),
-
               const SizedBox(height: 15),
-
               Text(
                 _isListening
-                    ? 'Listening... Tap to stop'
-                    : 'Tap the microphone to speak',
+                    ? (isHindi
+                        ? 'सुन रहा हूँ... रोकने के लिए दबाएं'
+                        : 'Listening... Tap to stop')
+                    : (isHindi
+                        ? 'बोलने के लिए माइक्रोफोन दबाएं'
+                        : 'Tap the microphone to speak'),
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 18,
@@ -193,9 +238,7 @@ class _VoiceDiaryScreenState extends State<VoiceDiaryScreen> {
                   color: Color(0xFF974731),
                 ),
               ),
-
               const SizedBox(height: 25),
-
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(20),
@@ -208,7 +251,9 @@ class _VoiceDiaryScreenState extends State<VoiceDiaryScreen> {
                 ),
                 child: Text(
                   _diaryText.isEmpty
-                      ? 'Your spoken memory will appear here...'
+                      ? (isHindi
+                          ? 'आपकी बोली हुई याद यहां दिखाई देगी...'
+                          : 'Your spoken memory will appear here...')
                       : _diaryText,
                   textAlign: TextAlign.center,
                   style: TextStyle(
@@ -220,18 +265,16 @@ class _VoiceDiaryScreenState extends State<VoiceDiaryScreen> {
                   ),
                 ),
               ),
-
               const SizedBox(height: 18),
-
               SizedBox(
                 width: double.infinity,
                 height: 55,
                 child: ElevatedButton.icon(
                   onPressed: _saveMemory,
                   icon: const Icon(Icons.save),
-                  label: const Text(
-                    'Save Memory',
-                    style: TextStyle(
+                  label: Text(
+                    isHindi ? 'याद सेव करें' : 'Save Memory',
+                    style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
@@ -245,32 +288,29 @@ class _VoiceDiaryScreenState extends State<VoiceDiaryScreen> {
                   ),
                 ),
               ),
-
               const SizedBox(height: 35),
-
-              const Align(
+              Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  'My Memories',
-                  style: TextStyle(
+                  isHindi ? 'मेरी यादें' : 'My Memories',
+                  style: const TextStyle(
                     fontSize: 25,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF1C1C15),
                   ),
                 ),
               ),
-
               const SizedBox(height: 15),
-
               if (_memories.isEmpty)
-                const Text(
-                  'No memories saved yet.',
-                  style: TextStyle(
+                Text(
+                  isHindi
+                      ? 'अभी तक कोई याद सेव नहीं हुई है।'
+                      : 'No memories saved yet.',
+                  style: const TextStyle(
                     fontSize: 17,
                     color: Color(0xFF72766F),
                   ),
                 ),
-
               ListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
@@ -298,9 +338,7 @@ class _VoiceDiaryScreenState extends State<VoiceDiaryScreen> {
                             color: Color(0xFF974731),
                           ),
                         ),
-
                         const SizedBox(width: 12),
-
                         Expanded(
                           child: Text(
                             memory,
@@ -313,7 +351,6 @@ class _VoiceDiaryScreenState extends State<VoiceDiaryScreen> {
                             ),
                           ),
                         ),
-
                         IconButton(
                           onPressed: () {
                             _readMemory(memory);
