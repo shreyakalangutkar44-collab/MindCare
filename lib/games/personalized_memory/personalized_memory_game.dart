@@ -1,52 +1,36 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 
 class MemoryQuestion {
-  final String imagePath;
+  final String? imagePath;
+  final String? imageUrl;
+  final String question;
   final String correctAnswer;
   final List<String> options;
 
   const MemoryQuestion({
-    required this.imagePath,
+    this.imagePath,
+    this.imageUrl,
+    required this.question,
     required this.correctAnswer,
     required this.options,
   });
 }
 
 class PersonalizedMemoryGame extends StatefulWidget {
-  const PersonalizedMemoryGame({super.key});
+  final List<MemoryQuestion> questions;
+
+  const PersonalizedMemoryGame({
+    super.key,
+    required this.questions,
+  });
 
   @override
   State<PersonalizedMemoryGame> createState() =>
       _PersonalizedMemoryGameState();
 }
 
-class _PersonalizedMemoryGameState extends State<PersonalizedMemoryGame> {
-  // Temporary local images.
-  // Later P5 can replace these with Firebase images.
-  final List<MemoryQuestion> _questions = [
-    const MemoryQuestion(
-      imagePath: 'assets/memory_images/Apple.jpg',
-      correctAnswer: 'Apple',
-      options: ['Apple', 'Car', 'House'],
-    ),
-    const MemoryQuestion(
-      imagePath: 'assets/memory_images/Car.jpg',
-      correctAnswer: 'Car',
-      options: ['Tree', 'Car', 'Apple'],
-    ),
-    const MemoryQuestion(
-      imagePath: 'assets/memory_images/House.jpg',
-      correctAnswer: 'House',
-      options: ['House', 'Tree', 'Car'],
-    ),
-    const MemoryQuestion(
-      imagePath: 'assets/memory_images/Tree.jpg',
-      correctAnswer: 'Tree',
-      options: ['Apple', 'House', 'Tree'],
-    ),
-  ];
-
+class _PersonalizedMemoryGameState
+    extends State<PersonalizedMemoryGame> {
   int _currentQuestion = 0;
   int _score = 0;
   int _correctAnswers = 0;
@@ -57,9 +41,6 @@ class _PersonalizedMemoryGameState extends State<PersonalizedMemoryGame> {
   @override
   void initState() {
     super.initState();
-
-    // Shuffle the questions every time the game starts.
-    _questions.shuffle(Random());
   }
 
   void _checkAnswer(String answer) {
@@ -67,7 +48,7 @@ class _PersonalizedMemoryGameState extends State<PersonalizedMemoryGame> {
       return;
     }
 
-    final question = _questions[_currentQuestion];
+    final question = widget.questions[_currentQuestion];
 
     setState(() {
       _selectedAnswer = answer;
@@ -81,7 +62,7 @@ class _PersonalizedMemoryGameState extends State<PersonalizedMemoryGame> {
   }
 
   void _nextQuestion() {
-    if (_currentQuestion < _questions.length - 1) {
+    if (_currentQuestion < widget.questions.length - 1) {
       setState(() {
         _currentQuestion++;
         _selectedAnswer = null;
@@ -99,14 +80,13 @@ class _PersonalizedMemoryGameState extends State<PersonalizedMemoryGame> {
       _correctAnswers = 0;
       _selectedAnswer = null;
       _answered = false;
-
-      _questions.shuffle(Random());
     });
   }
 
   void _showResult() {
-    final double accuracy =
-        (_correctAnswers / _questions.length) * 100;
+    final double accuracy = widget.questions.isEmpty
+        ? 0
+        : (_correctAnswers / widget.questions.length) * 100;
 
     showDialog(
       context: context,
@@ -136,7 +116,7 @@ class _PersonalizedMemoryGameState extends State<PersonalizedMemoryGame> {
               ),
               const SizedBox(height: 20),
               Text(
-                'Score: $_score / ${_questions.length}',
+                'Score: $_score / ${widget.questions.length}',
                 style: const TextStyle(
                   fontSize: 23,
                   fontWeight: FontWeight.bold,
@@ -185,7 +165,7 @@ class _PersonalizedMemoryGameState extends State<PersonalizedMemoryGame> {
       return const Color(0xFFFDF9EE);
     }
 
-    final question = _questions[_currentQuestion];
+    final question = widget.questions[_currentQuestion];
 
     if (answer == question.correctAnswer) {
       return const Color(0xFFD3E8CE);
@@ -203,7 +183,7 @@ class _PersonalizedMemoryGameState extends State<PersonalizedMemoryGame> {
       return const Color(0xFFE6E2D8);
     }
 
-    final question = _questions[_currentQuestion];
+    final question = widget.questions[_currentQuestion];
 
     if (answer == question.correctAnswer) {
       return const Color(0xFF51634E);
@@ -231,9 +211,81 @@ class _PersonalizedMemoryGameState extends State<PersonalizedMemoryGame> {
     }
   }
 
+  Widget _buildMemoryImage(MemoryQuestion question) {
+    if (question.imageUrl != null &&
+        question.imageUrl!.isNotEmpty) {
+      return Image.network(
+        question.imageUrl!,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return const Center(
+            child: Icon(
+              Icons.image_not_supported,
+              size: 70,
+              color: Color(0xFF747871),
+            ),
+          );
+        },
+      );
+    }
+
+    if (question.imagePath != null &&
+        question.imagePath!.isNotEmpty) {
+      return Image.asset(
+        question.imagePath!,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return const Center(
+            child: Icon(
+              Icons.image_not_supported,
+              size: 70,
+              color: Color(0xFF747871),
+            ),
+          );
+        },
+      );
+    }
+
+    return const Center(
+      child: Icon(
+        Icons.image_not_supported,
+        size: 70,
+        color: Color(0xFF747871),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final question = _questions[_currentQuestion];
+    if (widget.questions.isEmpty) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFFDF9EE),
+        appBar: AppBar(
+          backgroundColor: const Color(0xFFFDF9EE),
+          elevation: 0,
+          centerTitle: true,
+          title: const Text(
+            'MindCare',
+            style: TextStyle(
+              color: Color(0xFF51634E),
+              fontSize: 30,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        body: const Center(
+          child: Text(
+            'No questions available.',
+            style: TextStyle(
+              fontSize: 22,
+              color: Color(0xFF51634E),
+            ),
+          ),
+        ),
+      );
+    }
+
+    final question = widget.questions[_currentQuestion];
 
     return Scaffold(
       backgroundColor: const Color(0xFFFDF9EE),
@@ -276,7 +328,7 @@ class _PersonalizedMemoryGameState extends State<PersonalizedMemoryGame> {
                 children: [
                   // Progress
                   Text(
-                    'Question ${_currentQuestion + 1} of ${_questions.length}',
+                    'Question ${_currentQuestion + 1} of ${widget.questions.length}',
                     style: const TextStyle(
                       color: Color(0xFF51634E),
                       fontSize: 18,
@@ -289,11 +341,11 @@ class _PersonalizedMemoryGameState extends State<PersonalizedMemoryGame> {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(20),
                     child: LinearProgressIndicator(
-                      value:
-                          (_currentQuestion + 1) /
-                              _questions.length,
+                      value: (_currentQuestion + 1) /
+                          widget.questions.length,
                       minHeight: 10,
-                      backgroundColor: const Color(0xFFE6E2D8),
+                      backgroundColor:
+                          const Color(0xFFE6E2D8),
                       valueColor:
                           const AlwaysStoppedAnimation<Color>(
                         Color(0xFF51634E),
@@ -327,30 +379,17 @@ class _PersonalizedMemoryGameState extends State<PersonalizedMemoryGame> {
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(18),
-                      child: Image.asset(
-                        question.imagePath,
-                        fit: BoxFit.cover,
-                        errorBuilder:
-                            (context, error, stackTrace) {
-                          return const Center(
-                            child: Icon(
-                              Icons.image_not_supported,
-                              size: 70,
-                              color: Color(0xFF747871),
-                            ),
-                          );
-                        },
-                      ),
+                      child: _buildMemoryImage(question),
                     ),
                   ),
 
                   const SizedBox(height: 30),
 
-                  // Question
-                  const Text(
-                    'What is this?',
+                  // Question from P3
+                  Text(
+                    question.question,
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: Color(0xFF1C1C15),
                       fontSize: 30,
                       fontWeight: FontWeight.bold,
@@ -379,8 +418,9 @@ class _PersonalizedMemoryGameState extends State<PersonalizedMemoryGame> {
                           answer == _selectedAnswer;
 
                       return Padding(
-                        padding:
-                            const EdgeInsets.only(bottom: 14),
+                        padding: const EdgeInsets.only(
+                          bottom: 14,
+                        ),
                         child: SizedBox(
                           width: double.infinity,
                           height: 72,
@@ -452,7 +492,8 @@ class _PersonalizedMemoryGameState extends State<PersonalizedMemoryGame> {
                                 if (_answered && isCorrect)
                                   const Icon(
                                     Icons.check_circle,
-                                    color: Color(0xFF51634E),
+                                    color:
+                                        Color(0xFF51634E),
                                     size: 30,
                                   )
                                 else if (_answered &&
@@ -460,13 +501,15 @@ class _PersonalizedMemoryGameState extends State<PersonalizedMemoryGame> {
                                     !isCorrect)
                                   const Icon(
                                     Icons.cancel,
-                                    color: Color(0xFF974731),
+                                    color:
+                                        Color(0xFF974731),
                                     size: 30,
                                   )
                                 else
                                   const Icon(
                                     Icons.chevron_right,
-                                    color: Color(0xFF747871),
+                                    color:
+                                        Color(0xFF747871),
                                     size: 30,
                                   ),
                               ],
@@ -521,7 +564,7 @@ class _PersonalizedMemoryGameState extends State<PersonalizedMemoryGame> {
                         ),
                         child: Text(
                           _currentQuestion ==
-                                  _questions.length - 1
+                                  widget.questions.length - 1
                               ? 'Finish Game'
                               : 'Next Question',
                           style: const TextStyle(
@@ -537,8 +580,6 @@ class _PersonalizedMemoryGameState extends State<PersonalizedMemoryGame> {
           ),
         ),
       ),
-
-      
     );
   }
 }
