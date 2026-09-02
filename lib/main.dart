@@ -7,6 +7,8 @@ import 'services/database_service.dart';
 import 'models/game_result.dart';
 import 'reminders/reminder_service.dart';
 import 'games/memory_match/memory_match.dart';
+import 'voice/voice_diary.dart';
+import 'voice/voice_recall.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -103,45 +105,71 @@ class _TestPageState extends State<TestPage> {
     return Scaffold(
       appBar: AppBar(title: const Text('MindCare Test')),
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            ElevatedButton(
-              onPressed: _testLogin,
-              child: const Text('Test Login'),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _testSaveGameResult,
-              child: const Text('Save Test GameResult'),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _testNotification,
-              child: const Text('Test Notification'),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const MemoryMatchGame(),
-                  ),
-                );
-              },
-              child: const Text('Play Memory Match'),
-            ),
-            const SizedBox(height: 20),
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Text(
-                _result,
-                style: const TextStyle(fontSize: 16),
-                textAlign: TextAlign.center,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              ElevatedButton(
+                onPressed: _testLogin,
+                child: const Text('Test Login'),
               ),
-            ),
-          ],
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: _testSaveGameResult,
+                child: const Text('Save Test GameResult'),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: _testNotification,
+                child: const Text('Test Notification'),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const MemoryMatchGame(),
+                    ),
+                  );
+                },
+                child: const Text('Play Memory Match'),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const VoiceDiaryScreen(),
+                    ),
+                  );
+                },
+                child: const Text('Voice Diary'),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const VoiceRecall(),
+                    ),
+                  );
+                },
+                child: const Text('Voice Recall'),
+              ),
+              const SizedBox(height: 20),
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text(
+                  _result,
+                  style: const TextStyle(fontSize: 16),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
