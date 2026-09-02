@@ -1,124 +1,151 @@
 import 'package:flutter/material.dart';
+import '../services/auth_service.dart';
+import 'home_screen.dart';
 
-class MyWidget extends StatelessWidget {
-  const MyWidget({super.key});
+class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key});
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final AuthService _authService = AuthService();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  bool _obscurePassword = true;
+  bool _isLoading = false;
+  String? _errorMessage;
+
+  Future<void> _handleLogin() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    final user = await _authService.login(
+      _emailController.text.trim(),
+      _passwordController.text.trim(),
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      _isLoading = false;
+    });
+
+    if (user != null) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const HomeScreen()),
+      );
+    } else {
+      setState(() {
+        _errorMessage = 'Login failed. Check your email and password.';
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      type: MaterialType.transparency,
-      child: SingleChildScrollView(
-        child: Container(
-                  color: Color(0xFFF8F4E8),
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SizedBox.shrink(),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Image.network(
-                              "https://lh3.googleusercontent.com/aida/AEtjO1Vnh0XxZj92-VSJdQZpEKlLMG1RePspw3AV4L-URkYdoyBDRUG7JIICtPpdCgrVTXupx5AjIfnEZSRCf4atiT4LhlqSQ7dckGEo8dIli4Ust-PtM8YoYV_5qFBNpZQGh_RXTmRM-8ba89Eutd-S35jxH1qZlEEEpFlZ2LCj9jmn426twQX8Clvps6-X7QXtw7zGkymwnILd4tLM7rNKnYQIfJFoeLcgLI0YCUSdm9DJ81r0gOJUzfT4dQ",
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) => Container(
-                                height: 180.0,
-                                color: Color(0xFFEEEEEE),
-                                alignment: Alignment.center,
-                                child: Icon(Icons.broken_image, color: Color(0xFF9E9E9E)),
-                              ),
-                            ),
-                            Text(
-                              "MindCare",
-                              style: TextStyle(fontSize: 32.0, fontWeight: FontWeight.w700, fontFamily: "Atkinson Hyperlegible Next"),
-                            ),
-                            Text(
-                              "Your daily cognitive companion",
-                              style: TextStyle(fontSize: 16.0, fontFamily: "Atkinson Hyperlegible Next"),
-                            ),
-                          ],
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            ElevatedButton(
-                              onPressed: () {},
-                              style: ElevatedButton.styleFrom(backgroundColor: Color(0xFF8DA189), foregroundColor: Color(0xFF263725)),
-                              child: Text("elderly\n                I am a Patient", style: TextStyle(fontFamily: "Atkinson Hyperlegible Next")),
-                            ),
-                            ElevatedButton(
-                              onPressed: () {},
-                              style: ElevatedButton.styleFrom(backgroundColor: Color(0x00000000), foregroundColor: Color(0xFF434841)),
-                              child: Text("health_and_safety\n                I am a Caregiver", style: TextStyle(fontFamily: "Atkinson Hyperlegible Next")),
-                            ),
-                          ],
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  "Phone or Email",
-                                  style: TextStyle(fontFamily: "Atkinson Hyperlegible Next"),
-                                ),
-                                TextField(
-                                  decoration: InputDecoration(
-                                    border: OutlineInputBorder(),
-                                    hintText: "Enter your phone or email",
-                                  ),
-                                ),
-                              ],
-                            ),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  "Password",
-                                  style: TextStyle(fontFamily: "Atkinson Hyperlegible Next"),
-                                ),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    TextField(
-                                      decoration: InputDecoration(
-                                        border: OutlineInputBorder(),
-                                        hintText: "Enter your password",
-                                      ),
-                                      obscureText: true,
-                                    ),
-                                    ElevatedButton(
-                                      onPressed: () {},
-                                      child: Text("visibility_off", style: TextStyle(fontFamily: "Atkinson Hyperlegible Next")),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                            ElevatedButton(
-                              onPressed: () {},
-                              style: ElevatedButton.styleFrom(backgroundColor: Color(0xFF79301C), foregroundColor: Color(0xFFFFFFFF)),
-                              child: Text("Login", style: TextStyle(fontFamily: "Atkinson Hyperlegible Next")),
-                            ),
-                          ],
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            ElevatedButton(
-                              onPressed: () {},
-                              child: Text("Forgot Password?", style: TextStyle(fontFamily: "Atkinson Hyperlegible Next")),
-                            ),
-                            SizedBox.shrink(),
-                            ElevatedButton(
-                              onPressed: () {},
-                              child: Text("Don't have an account? Register", style: TextStyle(fontFamily: "Atkinson Hyperlegible Next")),
-                            ),
-                          ],
-                        ),
-                      ],
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8F4E8),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 20),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "MindCare",
+                    style: TextStyle(fontSize: 32.0, fontWeight: FontWeight.w700),
+                  ),
+                  const Text(
+                    "Your daily cognitive companion",
+                    style: TextStyle(fontSize: 16.0),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 30),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("Phone or Email"),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: _emailController,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      hintText: "Enter your phone or email",
                     ),
-                ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text("Password"),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: _passwordController,
+                    obscureText: _obscurePassword,
+                    decoration: InputDecoration(
+                      border: const OutlineInputBorder(),
+                      hintText: "Enter your password",
+                      suffixIcon: IconButton(
+                        icon: Icon(_obscurePassword
+                            ? Icons.visibility_off
+                            : Icons.visibility),
+                        onPressed: () {
+                          setState(() {
+                            _obscurePassword = !_obscurePassword;
+                          });
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  if (_errorMessage != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12.0),
+                      child: Text(
+                        _errorMessage!,
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                    ),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _handleLogin,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF79301C),
+                        foregroundColor: const Color(0xFFFFFFFF),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: _isLoading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Text("Login"),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
