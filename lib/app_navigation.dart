@@ -1,9 +1,13 @@
+
 import 'package:flutter/material.dart';
 
 import 'patient_profile.dart';
-import 'patient_progress.dart';
+import 'screens/patient_progress.dart' as progress;
 import 'medications.dart';
 import 'chats.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'services/database_service.dart';
+import 'screens/add_memory_photo_screen.dart';
 
 class AppNavigation extends StatefulWidget {
   const AppNavigation({super.key});
@@ -25,7 +29,10 @@ class _AppNavigationState extends State<AppNavigation> {
 
   late final List<Widget> pages = [
     const CaregiverDashboardPage(),
-    const PatientProgressScreen(),
+
+    // Patient progress screen
+    const progress.PatientProgressScreen(),
+
     const MedicationsScreen(),
     const ChatsScreen(),
     const PatientProfileScreen(),
@@ -79,15 +86,18 @@ class _AppNavigationState extends State<AppNavigation> {
           ),
         ],
       ),
+
       child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(
             horizontal: 10,
             vertical: 8,
           ),
+
           child: Row(
             mainAxisAlignment:
                 MainAxisAlignment.spaceAround,
+
             children: [
               _navItem(
                 index: 0,
@@ -143,28 +153,37 @@ class _AppNavigationState extends State<AppNavigation> {
         onTap: () {
           goToPage(index);
         },
+
         behavior: HitTestBehavior.opaque,
+
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
+
           padding: const EdgeInsets.symmetric(
             vertical: 6,
             horizontal: 5,
           ),
+
           child: Column(
             mainAxisSize: MainAxisSize.min,
+
             children: [
               AnimatedContainer(
                 duration:
                     const Duration(milliseconds: 180),
+
                 width: active ? 48 : 42,
                 height: 34,
+
                 decoration: BoxDecoration(
                   color: active
                       ? sageLight
                       : Colors.transparent,
+
                   borderRadius:
                       BorderRadius.circular(17),
                 ),
+
                 child: Icon(
                   active ? activeIcon : icon,
                   size: 21,
@@ -180,11 +199,14 @@ class _AppNavigationState extends State<AppNavigation> {
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
+
                 style: TextStyle(
                   color: active
                       ? sage
                       : Colors.grey.shade600,
+
                   fontSize: 10,
+
                   fontWeight: active
                       ? FontWeight.w700
                       : FontWeight.w500,
@@ -230,6 +252,7 @@ class CaregiverDashboardPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: cream,
+
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(
@@ -238,9 +261,11 @@ class CaregiverDashboardPage extends StatelessWidget {
             20,
             30,
           ),
+
           child: Column(
             crossAxisAlignment:
                 CrossAxisAlignment.start,
+
             children: [
               _buildHeader(),
 
@@ -278,6 +303,10 @@ class CaregiverDashboardPage extends StatelessWidget {
 
               _buildQuickAccess(context),
 
+              const SizedBox(height: 12),
+
+              _buildAddPhotoCard(context),
+
               const SizedBox(height: 20),
 
               _buildPatientOverview(),
@@ -302,11 +331,13 @@ class CaregiverDashboardPage extends StatelessWidget {
         Container(
           width: 48,
           height: 48,
+
           decoration: BoxDecoration(
             color: sageLight,
             borderRadius:
                 BorderRadius.circular(15),
           ),
+
           child: const Icon(
             Icons.health_and_safety_outlined,
             color: sageDark,
@@ -320,6 +351,7 @@ class CaregiverDashboardPage extends StatelessWidget {
           child: Column(
             crossAxisAlignment:
                 CrossAxisAlignment.start,
+
             children: [
               Text(
                 'MindCare',
@@ -329,7 +361,9 @@ class CaregiverDashboardPage extends StatelessWidget {
                   fontWeight: FontWeight.bold,
                 ),
               ),
+
               SizedBox(height: 2),
+
               Text(
                 'Caregiver Dashboard',
                 style: TextStyle(
@@ -344,14 +378,17 @@ class CaregiverDashboardPage extends StatelessWidget {
         Container(
           width: 43,
           height: 43,
+
           decoration: BoxDecoration(
             color: surface,
             borderRadius:
                 BorderRadius.circular(14),
+
             border: Border.all(
               color: const Color(0xFFE7E3D8),
             ),
           ),
+
           child: const Icon(
             Icons.notifications_none_outlined,
             color: sageDark,
@@ -370,10 +407,12 @@ class CaregiverDashboardPage extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(21),
+
       decoration: BoxDecoration(
         color: sageDark,
         borderRadius:
             BorderRadius.circular(23),
+
         boxShadow: [
           BoxShadow(
             color: ink.withValues(alpha: .12),
@@ -382,21 +421,27 @@ class CaregiverDashboardPage extends StatelessWidget {
           ),
         ],
       ),
+
       child: const Column(
         crossAxisAlignment:
             CrossAxisAlignment.start,
+
         children: [
           Text(
             'Good day, Caregiver 🌿',
+
             style: TextStyle(
               color: Colors.white,
               fontSize: 23,
               fontWeight: FontWeight.bold,
             ),
           ),
+
           SizedBox(height: 8),
+
           Text(
             'Here is your patient care overview for today.',
+
             style: TextStyle(
               color: Color(0xFFDCE8D8),
               fontSize: 12,
@@ -415,14 +460,17 @@ class CaregiverDashboardPage extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(17),
+
       decoration: BoxDecoration(
         color: surface,
         borderRadius:
             BorderRadius.circular(20),
+
         border: Border.all(
           color: const Color(0xFFE7E3D8),
         ),
       ),
+
       child: Column(
         children: [
           _dashboardRow(
@@ -471,11 +519,13 @@ class CaregiverDashboardPage extends StatelessWidget {
         Container(
           width: 44,
           height: 44,
+
           decoration: BoxDecoration(
             color: color.withValues(alpha: .11),
             borderRadius:
                 BorderRadius.circular(13),
           ),
+
           child: Icon(
             icon,
             color: color,
@@ -489,18 +539,23 @@ class CaregiverDashboardPage extends StatelessWidget {
           child: Column(
             crossAxisAlignment:
                 CrossAxisAlignment.start,
+
             children: [
               Text(
                 title,
+
                 style: const TextStyle(
                   color: ink,
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
                 ),
               ),
+
               const SizedBox(height: 3),
+
               Text(
                 subtitle,
+
                 style: const TextStyle(
                   color: Color(0xFF77776D),
                   fontSize: 11,
@@ -523,6 +578,106 @@ class CaregiverDashboardPage extends StatelessWidget {
   // QUICK ACCESS
   // ============================================================
 
+  Future<void> _openAddPhoto(BuildContext context) async {
+    final patients =
+        await DatabaseService().getAllPatientUsers();
+
+    if (!context.mounted) return;
+
+    if (patients.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'No patient accounts found yet.',
+          ),
+        ),
+      );
+
+      return;
+    }
+
+    Navigator.push(
+      context,
+
+      MaterialPageRoute(
+        builder: (context) =>
+            AddMemoryPhotoScreen(
+              patientId: patients.first['id'],
+            ),
+      ),
+    );
+  }
+
+  Widget _buildAddPhotoCard(
+    BuildContext context,
+  ) {
+    return InkWell(
+      onTap: () => _openAddPhoto(context),
+
+      borderRadius:
+          BorderRadius.circular(18),
+
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(17),
+
+        decoration: BoxDecoration(
+          color: surface,
+
+          borderRadius:
+              BorderRadius.circular(18),
+
+          border: Border.all(
+            color: const Color(0xFFE7E3D8),
+          ),
+        ),
+
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+
+              decoration: BoxDecoration(
+                color:
+                    terracotta.withValues(alpha: .11),
+
+                borderRadius:
+                    BorderRadius.circular(13),
+              ),
+
+              child: const Icon(
+                Icons.add_a_photo_outlined,
+                color: terracotta,
+                size: 22,
+              ),
+            ),
+
+            const SizedBox(width: 12),
+
+            const Expanded(
+              child: Text(
+                'Add Memory Photo',
+
+                style: TextStyle(
+                  color: ink,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+
+            Icon(
+              Icons.chevron_right,
+              color: Colors.grey.shade500,
+              size: 21,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildQuickAccess(
     BuildContext context,
   ) {
@@ -533,6 +688,7 @@ class CaregiverDashboardPage extends StatelessWidget {
             icon: Icons.medication_outlined,
             title: 'Medication',
             color: terracotta,
+
             onTap: () {
               final state = context
                   .findAncestorStateOfType<
@@ -550,6 +706,7 @@ class CaregiverDashboardPage extends StatelessWidget {
             icon: Icons.chat_bubble_outline,
             title: 'Chats',
             color: sage,
+
             onTap: () {
               final state = context
                   .findAncestorStateOfType<
@@ -571,30 +728,41 @@ class CaregiverDashboardPage extends StatelessWidget {
   }) {
     return InkWell(
       onTap: onTap,
+
       borderRadius:
           BorderRadius.circular(18),
+
       child: Container(
         padding: const EdgeInsets.all(17),
+
         decoration: BoxDecoration(
           color: surface,
+
           borderRadius:
               BorderRadius.circular(18),
+
           border: Border.all(
             color: const Color(0xFFE7E3D8),
           ),
         ),
+
         child: Column(
           crossAxisAlignment:
               CrossAxisAlignment.start,
+
           children: [
             Container(
               width: 44,
               height: 44,
+
               decoration: BoxDecoration(
-                color: color.withValues(alpha: .11),
+                color:
+                    color.withValues(alpha: .11),
+
                 borderRadius:
                     BorderRadius.circular(13),
               ),
+
               child: Icon(
                 icon,
                 color: color,
@@ -606,6 +774,7 @@ class CaregiverDashboardPage extends StatelessWidget {
 
             Text(
               title,
+
               style: const TextStyle(
                 color: ink,
                 fontSize: 13,
@@ -619,12 +788,15 @@ class CaregiverDashboardPage extends StatelessWidget {
               children: [
                 Text(
                   'Open',
+
                   style: TextStyle(
                     color: Color(0xFF77776D),
                     fontSize: 10,
                   ),
                 ),
+
                 SizedBox(width: 3),
+
                 Icon(
                   Icons.arrow_forward,
                   color: Color(0xFF77776D),
@@ -646,20 +818,24 @@ class CaregiverDashboardPage extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(19),
+
       decoration: BoxDecoration(
         color: const Color(0xFFF1EEE3),
         borderRadius:
             BorderRadius.circular(20),
       ),
+
       child: Row(
         children: [
           Container(
             width: 58,
             height: 58,
+
             decoration: BoxDecoration(
               color: sageLight,
               shape: BoxShape.circle,
             ),
+
             child: const Icon(
               Icons.person,
               color: sageDark,
@@ -673,18 +849,23 @@ class CaregiverDashboardPage extends StatelessWidget {
             child: Column(
               crossAxisAlignment:
                   CrossAxisAlignment.start,
+
               children: [
                 Text(
                   'Arunjyoti Baruah',
+
                   style: TextStyle(
                     color: ink,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
+
                 SizedBox(height: 4),
+
                 Text(
                   'Patient • Stable condition',
+
                   style: TextStyle(
                     color: Color(0xFF77776D),
                     fontSize: 11,
@@ -699,13 +880,16 @@ class CaregiverDashboardPage extends StatelessWidget {
               horizontal: 9,
               vertical: 6,
             ),
+
             decoration: BoxDecoration(
               color: sageLight,
               borderRadius:
                   BorderRadius.circular(15),
             ),
+
             child: const Text(
               'Stable',
+
               style: TextStyle(
                 color: sageDark,
                 fontSize: 10,
@@ -726,40 +910,52 @@ class CaregiverDashboardPage extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(17),
+
       decoration: BoxDecoration(
         color: const Color(0xFFFFF4D7),
+
         borderRadius:
             BorderRadius.circular(19),
+
         border: Border.all(
           color: const Color(0xFFF0E1B9),
         ),
       ),
+
       child: const Row(
         crossAxisAlignment:
             CrossAxisAlignment.start,
+
         children: [
           Icon(
             Icons.lightbulb_outline,
             color: Color(0xFF9A7A1C),
             size: 23,
           ),
+
           SizedBox(width: 11),
+
           Expanded(
             child: Column(
               crossAxisAlignment:
                   CrossAxisAlignment.start,
+
               children: [
                 Text(
                   'Care Tip',
+
                   style: TextStyle(
                     color: Color(0xFF735E18),
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
+
                 SizedBox(height: 4),
+
                 Text(
                   'Encourage regular cognitive activities and maintain a calm daily routine.',
+
                   style: TextStyle(
                     color: Color(0xFF806D2A),
                     fontSize: 11,

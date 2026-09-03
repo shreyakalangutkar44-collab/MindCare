@@ -1,585 +1,620 @@
+
+import 'dart:async';
+import 'dart:convert';
+import 'dart:math';
+import 'dart:typed_data';
+
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-class MemoryQuestion {
-  final String? imagePath;
-  final String? imageUrl;
-  final String question;
-  final String correctAnswer;
-  final List<String> options;
-
-  const MemoryQuestion({
-    this.imagePath,
-    this.imageUrl,
-    required this.question,
-    required this.correctAnswer,
-    required this.options,
-  });
-}
+import '../../models/game_result.dart';
+import '../../models/personalized_photo.dart';
+import '../../services/database_service.dart';
+import '../../screens/add_memory_photo_screen.dart';
 
 class PersonalizedMemoryGame extends StatefulWidget {
-  final List<MemoryQuestion> questions;
-
-  const PersonalizedMemoryGame({
-    super.key,
-    required this.questions,
-  });
+  const PersonalizedMemoryGame({super.key});
 
   @override
   State<PersonalizedMemoryGame> createState() =>
       _PersonalizedMemoryGameState();
 }
 
-class _PersonalizedMemoryGameState
-    extends State<PersonalizedMemoryGame> {
-  int _currentQuestion = 0;
-  int _score = 0;
-  int _correctAnswers = 0;
+class _PersonalizedMemoryGameState extends State<PersonalizedMemoryGame> {
+  final DatabaseService _databaseService = DatabaseService();
 
-  String? _selectedAnswer;
-  bool _answered = false;
+  List<PersonalizedPhoto> _photos = [];
+  List<_MemoryCard> _cards = [];
+
+  int _score = 0;
+  int _moves = 0;
+  int _difficulty = 1;
+
+  int? _firstIndex;
+  int? _secondIndex;
+
+  bool _loading = true;
+  bool _checking = false;
+
+  Timer? _timer;
+  int _timeTakenSeconds = 0;
 
   @override
   void initState() {
     super.initState();
+    _loadPhotos();
   }
 
-  void _checkAnswer(String answer) {
-    if (_answered) {
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  // ============================================================
+  // LOAD PERSONALIZED PHOTOS
+  // ============================================================
+
+  Future<void> _loadPhotos() async {
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      setState(() {
+        _loading = false;
+      });
       return;
     }
 
-    final question = widget.questions[_currentQuestion];
+    try {
+      final photos =
+          await _databaseService.getPhotosForPatient(user.uid);
 
-    setState(() {
-      _selectedAnswer = answer;
-      _answered = true;
-
-      if (answer == question.correctAnswer) {
-        _score++;
-        _correctAnswers++;
+      if (photos.length < 2) {
+        setState(() {
+          _photos = photos;
+          _loading = false;
+        });
+        return;
       }
-    });
-  }
 
-  void _nextQuestion() {
-    if (_currentQuestion < widget.questions.length - 1) {
+      // Use a maximum of 6 personalized photos.
+      final selectedPhotos = List<PersonalizedPhoto>.from(photos);
+
+      selectedPhotos.shuffle(Random());
+
+      final usablePhotos = selectedPhotos.take(6).toList();
+
+      _photos = usablePhotos;
+
+      _createCards();
+
+      _startTimer();
+
       setState(() {
-        _currentQuestion++;
-        _selectedAnswer = null;
-        _answered = false;
+        _loading = false;
       });
-    } else {
-      _showResult();
+    } catch (e) {
+      setState(() {
+        _loading = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content:
+                Text('Unable to load personalized photos: $e'),
+          ),
+        );
+      }
     }
   }
 
-  void _restartGame() {
-    setState(() {
-      _currentQuestion = 0;
+  // ============================================================
+  // ADD PHOTO
+  // ============================================================
+
+  Future<void> _addPhoto() async {
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      return;
+    }
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) =>
+            AddMemoryPhotoScreen(patientId: user.uid),
+      ),
+    );
+
+    // Reload photos after returning from Add Photo screen.
+    if (mounted) {
+      setState(() {
+        _loading = true;
+      });
+
       _score = 0;
-      _correctAnswers = 0;
-      _selectedAnswer = null;
-      _answered = false;
+      _moves = 0;
+      _timeTakenSeconds = 0;
+      _firstIndex = null;
+      _secondIndex = null;
+      _checking = false;
+
+      await _loadPhotos();
+    }
+  }
+
+  // ============================================================
+  // CREATE MEMORY CARDS
+  // ============================================================
+
+  void _createCards() {
+    final cards = <_MemoryCard>[];
+
+    for (final photo in _photos) {
+      cards.add(
+        _MemoryCard(
+          photoId: photo.id,
+          label: photo.label,
+          imageBase64: photo.imageBase64,
+        ),
+      );
+
+      cards.add(
+        _MemoryCard(
+          photoId: photo.id,
+          label: photo.label,
+          imageBase64: photo.imageBase64,
+        ),
+      );
+    }
+
+    cards.shuffle(Random());
+
+    setState(() {
+      _cards = cards;
     });
   }
 
-  void _showResult() {
-    final double accuracy = widget.questions.isEmpty
-        ? 0
-        : (_correctAnswers / widget.questions.length) * 100;
+  // ============================================================
+  // TIMER
+  // ============================================================
 
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFFFDF9EE),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: const Text(
-            'Game Complete!',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Color(0xFF51634E),
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.emoji_events,
-                size: 65,
-                color: Color(0xFF735C00),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                'Score: $_score / ${widget.questions.length}',
-                style: const TextStyle(
-                  fontSize: 23,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'Accuracy: ${accuracy.toStringAsFixed(0)}%',
-                style: const TextStyle(
-                  fontSize: 21,
-                ),
-              ),
-            ],
-          ),
-          actionsAlignment: MainAxisAlignment.center,
-          actions: [
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _restartGame();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF51634E),
-                foregroundColor: Colors.white,
-                minimumSize: const Size(180, 55),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-              ),
-              child: const Text(
-                'Play Again',
-                style: TextStyle(
-                  fontSize: 19,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ],
-        );
+  void _startTimer() {
+    _timer?.cancel();
+
+    _timer = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) {
+        if (mounted) {
+          setState(() {
+            _timeTakenSeconds++;
+          });
+        }
       },
     );
   }
 
-  Color _getOptionColor(String answer) {
-    if (!_answered) {
-      return const Color(0xFFFDF9EE);
-    }
+  // ============================================================
+  // CARD TAP
+  // ============================================================
 
-    final question = widget.questions[_currentQuestion];
+  void _onCardTap(int index) {
+    if (_checking) return;
+    if (_cards[index].isMatched) return;
+    if (_firstIndex == index) return;
 
-    if (answer == question.correctAnswer) {
-      return const Color(0xFFD3E8CE);
-    }
+    setState(() {
+      _cards[index].isFlipped = true;
+    });
 
-    if (answer == _selectedAnswer) {
-      return const Color(0xFFFFDAD6);
-    }
+    if (_firstIndex == null) {
+      setState(() {
+        _firstIndex = index;
+      });
+    } else {
+      _secondIndex = index;
+      _moves++;
 
-    return const Color(0xFFFDF9EE);
-  }
-
-  Color _getBorderColor(String answer) {
-    if (!_answered) {
-      return const Color(0xFFE6E2D8);
-    }
-
-    final question = widget.questions[_currentQuestion];
-
-    if (answer == question.correctAnswer) {
-      return const Color(0xFF51634E);
-    }
-
-    if (answer == _selectedAnswer) {
-      return const Color(0xFF974731);
-    }
-
-    return const Color(0xFFE6E2D8);
-  }
-
-  IconData _getIcon(String answer) {
-    switch (answer) {
-      case 'Apple':
-        return Icons.apple;
-      case 'Car':
-        return Icons.directions_car;
-      case 'House':
-        return Icons.home;
-      case 'Tree':
-        return Icons.park;
-      default:
-        return Icons.person;
+      _checkMatch();
     }
   }
 
-  Widget _buildMemoryImage(MemoryQuestion question) {
-    if (question.imageUrl != null &&
-        question.imageUrl!.isNotEmpty) {
-      return Image.network(
-        question.imageUrl!,
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) {
-          return const Center(
-            child: Icon(
-              Icons.image_not_supported,
-              size: 70,
-              color: Color(0xFF747871),
+  // ============================================================
+  // CHECK MATCH
+  // ============================================================
+
+  Future<void> _checkMatch() async {
+    if (_firstIndex == null || _secondIndex == null) return;
+
+    final first = _cards[_firstIndex!];
+    final second = _cards[_secondIndex!];
+
+    setState(() {
+      _checking = true;
+    });
+
+    await Future.delayed(
+      const Duration(milliseconds: 700),
+    );
+
+    if (!mounted) return;
+
+    if (first.photoId == second.photoId) {
+      setState(() {
+        first.isMatched = true;
+        second.isMatched = true;
+
+        _score++;
+      });
+    } else {
+      setState(() {
+        first.isFlipped = false;
+        second.isFlipped = false;
+      });
+    }
+
+    setState(() {
+      _firstIndex = null;
+      _secondIndex = null;
+      _checking = false;
+    });
+
+    if (_cards.every((card) => card.isMatched)) {
+      _finishGame();
+    }
+  }
+
+  // ============================================================
+  // FINISH GAME
+  // ============================================================
+
+  Future<void> _finishGame() async {
+    _timer?.cancel();
+
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) return;
+
+    final result = GameResult(
+      userId: user.uid,
+      gameName: 'Personalized Memory Game',
+      score: _score,
+      totalQuestions: _photos.length,
+      difficulty: _difficulty,
+      timeTakenSeconds: _timeTakenSeconds,
+    );
+
+    try {
+      await _databaseService.saveGameResult(result);
+
+      if (!mounted) return;
+
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) {
+          return AlertDialog(
+            title: const Text('🎉 Game Complete!'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Great job!',
+                  style:
+                      Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Matches: $_score / ${_photos.length}',
+                ),
+                Text(
+                  'Accuracy: '
+                  '${result.accuracy.toStringAsFixed(1)}%',
+                ),
+                Text(
+                  'Time: $_timeTakenSeconds seconds',
+                ),
+              ],
             ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.pop(context);
+                },
+                child: const Text('Done'),
+              ),
+            ],
           );
         },
       );
-    }
+    } catch (e) {
+      if (!mounted) return;
 
-    if (question.imagePath != null &&
-        question.imagePath!.isNotEmpty) {
-      return Image.asset(
-        question.imagePath!,
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) {
-          return const Center(
-            child: Icon(
-              Icons.image_not_supported,
-              size: 70,
-              color: Color(0xFF747871),
-            ),
-          );
-        },
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Game completed, but result was not saved: $e',
+          ),
+        ),
       );
     }
+  }
 
-    return const Center(
-      child: Icon(
-        Icons.image_not_supported,
-        size: 70,
-        color: Color(0xFF747871),
+  // ============================================================
+  // DECODE IMAGE
+  // ============================================================
+
+  Uint8List _decodeImage(String base64String) {
+    return base64Decode(base64String);
+  }
+
+  // ============================================================
+  // BUILD CARD
+  // ============================================================
+
+  Widget _buildCard(_MemoryCard card, int index) {
+    final showImage =
+        card.isFlipped || card.isMatched;
+
+    return GestureDetector(
+      onTap: () => _onCardTap(index),
+      child: Card(
+        elevation: 4,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            color: showImage
+                ? Colors.white
+                : Colors.blue.shade100,
+          ),
+          child: showImage
+              ? ClipRRect(
+                  borderRadius:
+                      BorderRadius.circular(12),
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: Image.memory(
+                          _decodeImage(
+                            card.imageBase64,
+                          ),
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                        ),
+                      ),
+                      Padding(
+                        padding:
+                            const EdgeInsets.all(6),
+                        child: Text(
+                          card.label,
+                          maxLines: 1,
+                          overflow:
+                              TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : const Center(
+                  child: Icon(
+                    Icons.help_outline,
+                    size: 45,
+                  ),
+                ),
+        ),
       ),
     );
   }
 
+  // ============================================================
+  // BUILD
+  // ============================================================
+
   @override
   Widget build(BuildContext context) {
-    if (widget.questions.isEmpty) {
+    if (_loading) {
       return Scaffold(
-        backgroundColor: const Color(0xFFFDF9EE),
         appBar: AppBar(
-          backgroundColor: const Color(0xFFFDF9EE),
-          elevation: 0,
-          centerTitle: true,
-          title: const Text(
-            'MindCare',
-            style: TextStyle(
-              color: Color(0xFF51634E),
-              fontSize: 30,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+          title: const Text('Personalized Memory'),
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (FirebaseAuth.instance.currentUser == null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Personalized Memory'),
         ),
         body: const Center(
           child: Text(
-            'No questions available.',
-            style: TextStyle(
-              fontSize: 22,
-              color: Color(0xFF51634E),
+            'Please log in to play the personalized memory game.',
+          ),
+        ),
+      );
+    }
+
+    // ==========================================================
+    // LESS THAN 2 PHOTOS
+    // ==========================================================
+
+    if (_photos.length < 2) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Personalized Memory'),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment:
+                  MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.photo_library_outlined,
+                  size: 70,
+                  color: Colors.blue,
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'At least 2 personalized photos '
+                  'are needed to play this game.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 18,
+                  ),
+                ),
+                const SizedBox(height: 25),
+
+                // ADD PHOTOS BUTTON
+                ElevatedButton.icon(
+                  onPressed: _addPhoto,
+                  icon: const Icon(
+                    Icons.add_a_photo,
+                  ),
+                  label: const Text(
+                    'Add Photos',
+                  ),
+                ),
+              ],
             ),
           ),
         ),
       );
     }
 
-    final question = widget.questions[_currentQuestion];
+    // ==========================================================
+    // GAME SCREEN
+    // ==========================================================
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFDF9EE),
-
       appBar: AppBar(
-        backgroundColor: const Color(0xFFFDF9EE),
-        elevation: 0,
-        centerTitle: true,
-
-        leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back,
-            size: 32,
-            color: Color(0xFF51634E),
-          ),
-          onPressed: () {
-            Navigator.of(context).maybePop();
-          },
-        ),
-
         title: const Text(
-          'MindCare',
-          style: TextStyle(
-            color: Color(0xFF51634E),
-            fontSize: 30,
-            fontWeight: FontWeight.bold,
-          ),
+          'Personalized Memory',
         ),
+        centerTitle: true,
+        actions: [
+          // ADD PHOTOS BUTTON
+          IconButton(
+            onPressed: _addPhoto,
+            icon: const Icon(
+              Icons.add_a_photo,
+            ),
+            tooltip: 'Add Photos',
+          ),
+        ],
       ),
+      body: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          children: [
+            // ====================================================
+            // GAME INFORMATION
+            // ====================================================
 
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 10, 20, 30),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(
-                maxWidth: 650,
-              ),
-              child: Column(
-                children: [
-                  // Progress
-                  Text(
-                    'Question ${_currentQuestion + 1} of ${widget.questions.length}',
-                    style: const TextStyle(
-                      color: Color(0xFF51634E),
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+            Row(
+              mainAxisAlignment:
+                  MainAxisAlignment.spaceAround,
+              children: [
+                Text(
+                  'Matches: $_score/${_photos.length}',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
                   ),
-
-                  const SizedBox(height: 12),
-
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(20),
-                    child: LinearProgressIndicator(
-                      value: (_currentQuestion + 1) /
-                          widget.questions.length,
-                      minHeight: 10,
-                      backgroundColor:
-                          const Color(0xFFE6E2D8),
-                      valueColor:
-                          const AlwaysStoppedAnimation<Color>(
-                        Color(0xFF51634E),
-                      ),
-                    ),
+                ),
+                Text(
+                  'Moves: $_moves',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
                   ),
-
-                  const SizedBox(height: 25),
-
-                  // Memory image
-                  Container(
-                    width: double.infinity,
-                    height: 350,
-                    constraints: const BoxConstraints(
-                      maxWidth: 500,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: const Color(0xFFE6E2D8),
-                        width: 2,
-                      ),
-                      boxShadow: const [
-                        BoxShadow(
-                          blurRadius: 24,
-                          offset: Offset(0, 4),
-                          color: Color(0x1F1C1C15),
-                        ),
-                      ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(18),
-                      child: _buildMemoryImage(question),
-                    ),
+                ),
+                Text(
+                  'Time: ${_timeTakenSeconds}s',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
                   ),
+                ),
+              ],
+            ),
 
-                  const SizedBox(height: 30),
+            const SizedBox(height: 12),
 
-                  // Question from P3
-                  Text(
-                    question.question,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Color(0xFF1C1C15),
-                      fontSize: 30,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+            // ====================================================
+            // ADD PHOTOS BUTTON
+            // ====================================================
 
-                  const SizedBox(height: 8),
-
-                  const Text(
-                    'Take your time to look closely.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Color(0xFF434841),
-                      fontSize: 20,
-                    ),
-                  ),
-
-                  const SizedBox(height: 25),
-
-                  // Answer buttons
-                  ...question.options.map(
-                    (answer) {
-                      final bool isCorrect =
-                          answer == question.correctAnswer;
-                      final bool isSelected =
-                          answer == _selectedAnswer;
-
-                      return Padding(
-                        padding: const EdgeInsets.only(
-                          bottom: 14,
-                        ),
-                        child: SizedBox(
-                          width: double.infinity,
-                          height: 72,
-                          child: ElevatedButton(
-                            onPressed: _answered
-                                ? null
-                                : () => _checkAnswer(answer),
-
-                            style: ElevatedButton.styleFrom(
-                              elevation: 3,
-                              backgroundColor:
-                                  _getOptionColor(answer),
-                              disabledBackgroundColor:
-                                  _getOptionColor(answer),
-                              foregroundColor:
-                                  const Color(0xFF1C1C15),
-                              disabledForegroundColor:
-                                  const Color(0xFF1C1C15),
-
-                              side: BorderSide(
-                                color:
-                                    _getBorderColor(answer),
-                                width: 2,
-                              ),
-
-                              shape: RoundedRectangleBorder(
-                                borderRadius:
-                                    BorderRadius.circular(20),
-                              ),
-
-                              padding:
-                                  const EdgeInsets.symmetric(
-                                horizontal: 20,
-                              ),
-                            ),
-
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 45,
-                                  height: 45,
-                                  decoration:
-                                      const BoxDecoration(
-                                    color: Color(0xFFE6E2D8),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(
-                                    _getIcon(answer),
-                                    color:
-                                        const Color(0xFF51634E),
-                                    size: 27,
-                                  ),
-                                ),
-
-                                const SizedBox(width: 16),
-
-                                Expanded(
-                                  child: Text(
-                                    answer,
-                                    textAlign: TextAlign.left,
-                                    style: const TextStyle(
-                                      fontSize: 21,
-                                      fontWeight:
-                                          FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-
-                                if (_answered && isCorrect)
-                                  const Icon(
-                                    Icons.check_circle,
-                                    color:
-                                        Color(0xFF51634E),
-                                    size: 30,
-                                  )
-                                else if (_answered &&
-                                    isSelected &&
-                                    !isCorrect)
-                                  const Icon(
-                                    Icons.cancel,
-                                    color:
-                                        Color(0xFF974731),
-                                    size: 30,
-                                  )
-                                else
-                                  const Icon(
-                                    Icons.chevron_right,
-                                    color:
-                                        Color(0xFF747871),
-                                    size: 30,
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-
-                  // Feedback
-                  if (_answered)
-                    Padding(
-                      padding: const EdgeInsets.only(
-                        top: 5,
-                        bottom: 15,
-                      ),
-                      child: Text(
-                        _selectedAnswer ==
-                                question.correctAnswer
-                            ? 'Correct! 🎉'
-                            : 'Good try! The correct answer is '
-                                '${question.correctAnswer}.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: _selectedAnswer ==
-                                  question.correctAnswer
-                              ? const Color(0xFF51634E)
-                              : const Color(0xFF974731),
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-
-                  // Next / Finish
-                  if (_answered)
-                    SizedBox(
-                      width: double.infinity,
-                      height: 60,
-                      child: ElevatedButton(
-                        onPressed: _nextQuestion,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor:
-                              const Color(0xFF51634E),
-                          foregroundColor: Colors.white,
-                          elevation: 3,
-                          shape: RoundedRectangleBorder(
-                            borderRadius:
-                                BorderRadius.circular(20),
-                          ),
-                        ),
-                        child: Text(
-                          _currentQuestion ==
-                                  widget.questions.length - 1
-                              ? 'Finish Game'
-                              : 'Next Question',
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _addPhoto,
+                icon: const Icon(
+                  Icons.add_a_photo_outlined,
+                ),
+                label: const Text(
+                  'Add More Memory Photos',
+                ),
               ),
             ),
-          ),
+
+            const SizedBox(height: 12),
+
+            // ====================================================
+            // MEMORY GRID
+            // ====================================================
+
+            Expanded(
+              child: GridView.builder(
+                itemCount: _cards.length,
+                gridDelegate:
+                    const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  crossAxisSpacing: 8,
+                  mainAxisSpacing: 8,
+                  childAspectRatio: 0.8,
+                ),
+                itemBuilder: (context, index) {
+                  return _buildCard(
+                    _cards[index],
+                    index,
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
+
+// ================================================================
+// MEMORY CARD MODEL
+// ================================================================
+
+class _MemoryCard {
+  final String photoId;
+  final String label;
+  final String imageBase64;
+
+  bool isFlipped;
+  bool isMatched;
+
+  _MemoryCard({
+    required this.photoId,
+    required this.label,
+    required this.imageBase64,
+    this.isFlipped = false,
+    this.isMatched = false,
+  });
+}
+

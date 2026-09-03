@@ -1,10 +1,17 @@
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../games/memory_match/memory_match.dart';
 import '../games/pattern_match_game.dart';
+import '../games/story_memory/story_memory_game.dart';
+import '../games/personalized_memory/personalized_memory_game.dart';
 import '../voice/voice_diary.dart';
 import '../voice/voice_recall.dart';
+
+import 'profile_screen.dart';
+import 'patient_progress.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -20,10 +27,13 @@ class _HomeScreenState extends State<HomeScreen> {
   static const Color sageDark = Color(0xFF394B38);
   static const Color sageLight = Color(0xFFD3E8CE);
   static const Color terracotta = Color(0xFF974731);
+  static const Color yellow = Color(0xFFCCA72F);
   static const Color ink = Color(0xFF1C1C15);
 
-  String _displayName = 'there';
+  String _displayName = "Friend";
   bool _loadingName = true;
+
+  int _selectedIndex = 0;
 
   @override
   void initState() {
@@ -32,292 +42,560 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadUserName() async {
-    final user = FirebaseAuth.instance.currentUser;
+    try {
+      final user = FirebaseAuth.instance.currentUser;
 
-    if (user != null) {
-      try {
-        final doc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .get();
-
-        if (doc.exists && doc.data() != null && doc.data()!['name'] != null) {
+      if (user == null) {
+        if (mounted) {
           setState(() {
-            _displayName = doc.data()!['name'];
             _loadingName = false;
           });
+        }
+        return;
+      }
+
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      if (doc.exists) {
+        final data = doc.data();
+
+        if (data != null && data['name'] != null) {
+          if (mounted) {
+            setState(() {
+              _displayName = data['name'].toString();
+              _loadingName = false;
+            });
+          }
           return;
         }
-      } catch (e) {
-        // fall through to default below
+      }
+
+      if (mounted) {
+        setState(() {
+          _displayName = user.displayName ?? "Friend";
+          _loadingName = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loadingName = false;
+        });
       }
     }
-
-    setState(() {
-      _loadingName = false;
-    });
   }
 
-  void _comingSoon(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Coming soon')),
-    );
+  // ============================================================
+  // BOTTOM NAVIGATION
+  // ============================================================
+
+  void _onNavigationItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: cream,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 30),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: sageLight,
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    child: const Icon(
-                      Icons.self_improvement,
-                      color: sageDark,
-                      size: 26,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _loadingName ? 'Namaste...' : 'Namaste, $_displayName',
-                          style: const TextStyle(
-                            color: ink,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        const Text(
-                          'MindCare',
-                          style: TextStyle(
-                            color: Color(0xFF77776D),
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () => _comingSoon(context),
-                    child: Container(
-                      width: 43,
-                      height: 43,
-                      decoration: BoxDecoration(
-                        color: surface,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: const Color(0xFFE7E3D8)),
-                      ),
-                      child: const Icon(
-                        Icons.help_outline,
-                        color: sageDark,
-                        size: 23,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
 
-              const SizedBox(height: 22),
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: [
+          _buildHomeContent(),
 
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(21),
-                decoration: BoxDecoration(
-                  color: sageDark,
-                  borderRadius: BorderRadius.circular(23),
-                  boxShadow: [
-                    BoxShadow(
-                      color: ink.withValues(alpha: .12),
-                      blurRadius: 15,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
-                ),
-                child: const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Good day to you',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 23,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      'It is a beautiful day for some gentle brain exercise. Take your time and enjoy the activities.',
-                      style: TextStyle(
-                        color: Color(0xFFDCE8D8),
-                        fontSize: 12,
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+          // DASHBOARD / PROGRESS
+          const PatientProgressScreen(),
 
-              const SizedBox(height: 22),
+          _buildReminderScreen(),
 
-              const Text(
-                'Activities',
-                style: TextStyle(
-                  color: ink,
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+          const ProfileScreen(),
+        ],
+      ),
 
-              const SizedBox(height: 12),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        type: BottomNavigationBarType.fixed,
+        selectedItemColor: sageDark,
+        unselectedItemColor: Colors.grey,
+        backgroundColor: Colors.white,
+        onTap: _onNavigationItemTapped,
 
-              Row(
-                children: [
-                  Expanded(
-                    child: _activityCard(
-                      context: context,
-                      icon: Icons.grid_view_rounded,
-                      title: 'Memory Match',
-                      color: terracotta,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const MemoryMatchGame(),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _activityCard(
-                      context: context,
-                      icon: Icons.pattern,
-                      title: 'Pattern Game',
-                      color: sage,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const PatternMatchGame(),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home_outlined),
+            activeIcon: Icon(Icons.home),
+            label: "Home",
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.dashboard_outlined),
+            activeIcon: Icon(Icons.dashboard),
+            label: "Dashboard",
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.notifications_outlined),
+            activeIcon: Icon(Icons.notifications),
+            label: "Reminder",
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person_outline),
+            activeIcon: Icon(Icons.person),
+            label: "Profile",
+          ),
+        ],
+      ),
+    );
+  }
 
-              const SizedBox(height: 12),
+  // ============================================================
+  // REMINDER SCREEN
+  // ============================================================
 
-              Row(
-                children: [
-                  Expanded(
-                    child: _activityCard(
-                      context: context,
-                      icon: Icons.menu_book,
-                      title: 'Talk to me',
-                      color: sageDark,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const VoiceDiaryScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _activityCard(
-                      context: context,
-                      icon: Icons.psychology_outlined,
-                      title: 'Voice Recall',
-                      color: terracotta,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const VoiceRecall(),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ],
+  Widget _buildReminderScreen() {
+    return Scaffold(
+      backgroundColor: cream,
+
+      appBar: AppBar(
+        backgroundColor: cream,
+        elevation: 0,
+        centerTitle: true,
+
+        title: const Text(
+          "Reminders",
+          style: TextStyle(
+            color: ink,
+            fontSize: 23,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+
+      body: const Center(
+        child: Text(
+          "Reminders will appear here.",
+          style: TextStyle(
+            fontSize: 20,
+            color: ink,
           ),
         ),
       ),
     );
   }
 
+  // ============================================================
+  // HOME SCREEN
+  // ============================================================
+
+  Widget _buildHomeContent() {
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(
+          20,
+          18,
+          20,
+          30,
+        ),
+
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+
+          children: [
+            // ----------------------------------------------------
+            // HEADER
+            // ----------------------------------------------------
+
+            Row(
+              children: [
+                Container(
+                  height: 48,
+                  width: 48,
+
+                  decoration: BoxDecoration(
+                    color: sageLight,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+
+                  child: const Icon(
+                    Icons.favorite_rounded,
+                    color: sageDark,
+                    size: 27,
+                  ),
+                ),
+
+                const SizedBox(width: 12),
+
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment:
+                        CrossAxisAlignment.start,
+
+                    children: [
+                      const Text(
+                        "Namaste",
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: sage,
+                        ),
+                      ),
+
+                      const SizedBox(height: 2),
+
+                      Text(
+                        _loadingName
+                            ? "Welcome"
+                            : "Hello, $_displayName",
+
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: ink,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                IconButton(
+                  onPressed: () {
+                    setState(() {
+                      _selectedIndex = 3;
+                    });
+                  },
+
+                  icon: const Icon(
+                    Icons.person_outline_rounded,
+                    size: 28,
+                    color: sageDark,
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 24),
+
+            // ----------------------------------------------------
+            // WELCOME CARD
+            // ----------------------------------------------------
+
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(22),
+
+              decoration: BoxDecoration(
+                color: surface,
+                borderRadius: BorderRadius.circular(24),
+
+                boxShadow: [
+                  BoxShadow(
+                    blurRadius: 12,
+                    offset: const Offset(0, 5),
+                    color: Colors.black.withOpacity(0.06),
+                  ),
+                ],
+              ),
+
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment:
+                          CrossAxisAlignment.start,
+
+                      children: [
+                        const Text(
+                          "A little practice\ncan make a big difference.",
+
+                          style: TextStyle(
+                            fontSize: 21,
+                            fontWeight: FontWeight.bold,
+                            height: 1.25,
+                            color: ink,
+                          ),
+                        ),
+
+                        const SizedBox(height: 10),
+
+                        Text(
+                          "Take your time and enjoy today's activities.",
+
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: ink.withOpacity(0.65),
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(width: 10),
+
+                  Container(
+                    height: 70,
+                    width: 70,
+
+                    decoration: const BoxDecoration(
+                      color: sageLight,
+                      shape: BoxShape.circle,
+                    ),
+
+                    child: const Icon(
+                      Icons.psychology_alt_rounded,
+                      size: 40,
+                      color: sageDark,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 28),
+
+            // ----------------------------------------------------
+            // ACTIVITIES
+            // ----------------------------------------------------
+
+            const Text(
+              "Today's Activities",
+
+              style: TextStyle(
+                fontSize: 21,
+                fontWeight: FontWeight.bold,
+                color: ink,
+              ),
+            ),
+
+            const SizedBox(height: 14),
+
+            // MEMORY MATCH
+
+            _activityCard(
+              title: "Memory Match",
+              subtitle: "Match the same cards",
+              icon: Icons.grid_view_rounded,
+              color: sageLight,
+              iconColor: sageDark,
+
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        const MemoryMatchGame(),
+                  ),
+                );
+              },
+            ),
+
+            const SizedBox(height: 14),
+
+            // PATTERN GAME
+
+            _activityCard(
+              title: "Pattern Game",
+              subtitle: "Find the correct pattern",
+              icon: Icons.extension_rounded,
+              color: const Color(0xFFFFE8D9),
+              iconColor: terracotta,
+
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        const PatternMatchGame(),
+                  ),
+                );
+              },
+            ),
+
+            const SizedBox(height: 14),
+
+            // TALK TO ME
+
+            _activityCard(
+              title: "Talk to Me",
+              subtitle: "Talk about your day",
+              icon: Icons.mic_rounded,
+              color: const Color(0xFFFFF1C7),
+              iconColor: yellow,
+
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        const VoiceDiaryScreen(),
+                  ),
+                );
+              },
+            ),
+
+            const SizedBox(height: 14),
+
+            // VOICE RECALL
+
+            _activityCard(
+              title: "Voice Recall",
+              subtitle: "Listen and remember",
+              icon: Icons.record_voice_over_rounded,
+              color: const Color(0xFFE4E9F7),
+              iconColor: const Color(0xFF52658F),
+
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        const VoiceRecall(),
+                  ),
+                );
+              },
+            ),
+
+            const SizedBox(height: 14),
+
+            // STORY MEMORY
+
+            _activityCard(
+              title: "Story Memory",
+              subtitle: "Listen to a story and recall it",
+              icon: Icons.menu_book_rounded,
+              color: const Color(0xFFE7F0E4),
+              iconColor: sageDark,
+
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        const StoryMemoryGame(),
+                  ),
+                );
+              },
+            ),
+
+            const SizedBox(height: 14),
+
+            // PERSONALIZED MEMORY
+
+            _activityCard(
+              title: "Personalized Memory",
+              subtitle: "Remember familiar photos",
+              icon: Icons.photo_library_rounded,
+              color: const Color(0xFFF6E3E9),
+              iconColor: const Color(0xFF98566C),
+
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        const PersonalizedMemoryGame(),
+                  ),
+                );
+              },
+            ),
+
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // ACTIVITY CARD
+  // ============================================================
+
   Widget _activityCard({
-    required BuildContext context,
-    required IconData icon,
     required String title,
+    required String subtitle,
+    required IconData icon,
     required Color color,
+    required Color iconColor,
     required VoidCallback onTap,
   }) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
+
+      borderRadius: BorderRadius.circular(22),
+
       child: Container(
-        padding: const EdgeInsets.all(17),
+        width: double.infinity,
+        padding: const EdgeInsets.all(18),
+
         decoration: BoxDecoration(
           color: surface,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFFE7E3D8)),
+          borderRadius: BorderRadius.circular(22),
+
+          boxShadow: [
+            BoxShadow(
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+              color: Colors.black.withOpacity(0.05),
+            ),
+          ],
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+
+        child: Row(
           children: [
             Container(
-              width: 44,
-              height: 44,
+              height: 58,
+              width: 58,
+
               decoration: BoxDecoration(
-                color: color.withValues(alpha: .11),
-                borderRadius: BorderRadius.circular(13),
+                color: color,
+                borderRadius: BorderRadius.circular(18),
               ),
-              child: Icon(icon, color: color, size: 23),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: const TextStyle(
-                color: ink,
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
+
+              child: Icon(
+                icon,
+                color: iconColor,
+                size: 30,
               ),
             ),
-            const SizedBox(height: 3),
-            const Row(
-              children: [
-                Text(
-                  'Start',
-                  style: TextStyle(color: Color(0xFF77776D), fontSize: 10),
-                ),
-                SizedBox(width: 3),
-                Icon(Icons.arrow_forward, color: Color(0xFF77776D), size: 12),
-              ],
+
+            const SizedBox(width: 16),
+
+            Expanded(
+              child: Column(
+                crossAxisAlignment:
+                    CrossAxisAlignment.start,
+
+                children: [
+                  Text(
+                    title,
+
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      color: ink,
+                    ),
+                  ),
+
+                  const SizedBox(height: 5),
+
+                  Text(
+                    subtitle,
+
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: ink.withOpacity(0.6),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 18,
+              color: sage,
             ),
           ],
         ),

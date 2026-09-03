@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
+import '../../models/game_result.dart';
+import '../../services/database_service.dart';
 
 class StoryQuestion {
   final String story;
@@ -70,7 +74,11 @@ class _StoryMemoryGameState extends State<StoryMemoryGame> {
           story:
               'Meena visited her grandmother on Sunday. They sat in the garden and drank tea. Later, Meena helped her grandmother water the flowers.',
           question: 'What did Meena help with?',
-          options: ['Watering flowers', 'Cooking dinner', 'Cleaning the house'],
+          options: [
+            'Watering flowers',
+            'Cooking dinner',
+            'Cleaning the house'
+          ],
           correctAnswer: 'Watering flowers',
         ),
       ];
@@ -88,7 +96,11 @@ class _StoryMemoryGameState extends State<StoryMemoryGame> {
         story:
             'On Saturday morning, Arjun travelled to his hometown with his family. They visited an old family house near a large river. In the afternoon, they had lunch together and then walked to the river. Arjun noticed several colourful birds near the water.',
         question: 'Where was the old family house?',
-        options: ['Near a large river', 'Near a school', 'Near a market'],
+        options: [
+          'Near a large river',
+          'Near a school',
+          'Near a market'
+        ],
         correctAnswer: 'Near a large river',
       ),
       StoryQuestion(
@@ -138,10 +150,35 @@ class _StoryMemoryGameState extends State<StoryMemoryGame> {
     }
   }
 
-  void _finishGame() {
+  Future<void> _finishGame() async {
     final double accuracy =
         (_correctAnswers / _questions.length) * 100;
 
+    // Store the difficulty that was actually played.
+    final int playedDifficulty = _difficulty;
+
+    // Save Story Memory result to Firestore.
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user != null) {
+      final result = GameResult(
+        userId: user.uid,
+        gameName: 'Story Memory',
+        score: _correctAnswers,
+        totalQuestions: _questions.length,
+        difficulty: playedDifficulty,
+        timeTakenSeconds: 0,
+      );
+
+      try {
+        await DatabaseService().saveGameResult(result);
+        debugPrint('Story Memory result saved successfully');
+      } catch (e) {
+        debugPrint('Error saving Story Memory result: $e');
+      }
+    }
+
+    // Adjust difficulty for the next round.
     if (accuracy >= 80 && _difficulty < 3) {
       _difficulty++;
     } else if (accuracy < 50 && _difficulty > 1) {
@@ -157,6 +194,8 @@ class _StoryMemoryGameState extends State<StoryMemoryGame> {
     } else {
       level = 'Hard';
     }
+
+    if (!mounted) return;
 
     showDialog(
       context: context,
@@ -336,9 +375,9 @@ class _StoryMemoryGameState extends State<StoryMemoryGame> {
               constraints: const BoxConstraints(maxWidth: 650),
               child: Column(
                 children: [
-                  Text(
+                  const Text(
                     'Story Memory',
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Color(0xFF1C1C15),
                       fontSize: 30,
                       fontWeight: FontWeight.bold,

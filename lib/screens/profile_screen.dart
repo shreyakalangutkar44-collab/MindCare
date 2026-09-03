@@ -1,217 +1,514 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-class MyWidget extends StatelessWidget {
-  const MyWidget({super.key});
+import 'login_screen.dart';
+
+class ProfileScreen extends StatefulWidget {
+  const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  static const Color cream = Color(0xFFFDF9EE);
+  static const Color surface = Color(0xFFFFFFFF);
+  static const Color sage = Color(0xFF51634E);
+  static const Color sageDark = Color(0xFF394B38);
+  static const Color sageLight = Color(0xFFD3E8CE);
+  static const Color terracotta = Color(0xFF974731);
+  static const Color ink = Color(0xFF1C1C15);
+  static const Color muted = Color(0xFF77776D);
+  static const Color border = Color(0xFFE7E3D8);
+
+  String _name = 'User';
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserProfile();
+  }
+
+  Future<void> _loadUserProfile() async {
+    final User? user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      if (!mounted) return;
+
+      setState(() {
+        _name = 'User';
+        _loading = false;
+      });
+
+      return;
+    }
+
+    try {
+      final DocumentSnapshot<Map<String, dynamic>> doc =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .get();
+
+      if (doc.exists && doc.data() != null) {
+        final data = doc.data()!;
+
+        String name = 'User';
+
+        if (data['name'] != null &&
+            data['name'].toString().trim().isNotEmpty) {
+          name = data['name'].toString();
+        } else if (user.displayName != null &&
+            user.displayName!.trim().isNotEmpty) {
+          name = user.displayName!;
+        }
+
+        if (!mounted) return;
+
+        setState(() {
+          _name = name;
+          _loading = false;
+        });
+      } else {
+        if (!mounted) return;
+
+        setState(() {
+          _name = user.displayName?.isNotEmpty == true
+              ? user.displayName!
+              : 'User';
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _name = user.displayName?.isNotEmpty == true
+            ? user.displayName!
+            : 'User';
+        _loading = false;
+      });
+    }
+  }
+
+  void _comingSoon(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('This feature is coming soon'),
+      ),
+    );
+  }
+
+  Future<void> _logout(BuildContext context) async {
+    await FirebaseAuth.instance.signOut();
+
+    if (!context.mounted) return;
+
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const LoginScreen(),
+      ),
+      (route) => false,
+    );
+  }
+
+  void _callEmergency(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Emergency contact: Raj (Son) - +91 98765 00000',
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      type: MaterialType.transparency,
-      child: SingleChildScrollView(
-        child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+    return Scaffold(
+      backgroundColor: cream,
+      appBar: AppBar(
+        backgroundColor: cream,
+        elevation: 0,
+        centerTitle: false,
+        leading: IconButton(
+          icon: const Icon(
+            Icons.arrow_back,
+            color: ink,
+          ),
+          onPressed: () {
+            Navigator.pop(context);
+          },
+        ),
+        title: const Text(
+          'Profile',
+          style: TextStyle(
+            color: ink,
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(
+            20,
+            8,
+            20,
+            30,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // PROFILE HEADER
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(22),
+                decoration: BoxDecoration(
+                  color: surface,
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(
+                    color: border,
+                  ),
+                ),
+                child: Column(
                   children: [
-                    Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            ElevatedButton(
-                              onPressed: () {},
-                              child: Text("menu"),
-                            ),
-                            Text(
-                              "MindCare",
-                              style: TextStyle(fontSize: 32.0, fontWeight: FontWeight.w700),
-                            ),
-                            Image.network(
-                                  "https://lh3.googleusercontent.com/aida-public/AB6AXuDgJl-fkGgqUHSQbq0bWV70CUFK4sb2KlkwqV0qtaYUVHZ9V6Q4zn7TF5FoxE4haKvAdN0orRblR9xjOhn0lcgSjl6Cf9DWMHIf_Jrn5GpaFAeeLhUS0O6Vb1AOrD7_D5fnIflsZchrmA9yf3nRCxuGKmHw_2m5j9YstVbtVy_QkCJ35Qu6Tbpd1i6ne9YhVJfqSVw87PoO0QN2no4av-ncQSKhuQqRsn6a2W0auMri5D-1wUxm68g",
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) => Container(
-                                    height: 180.0,
-                                    color: Color(0xFFEEEEEE),
-                                    alignment: Alignment.center,
-                                    child: Icon(Icons.broken_image, color: Color(0xFF9E9E9E)),
-                                  ),
-                                ),
-                          ],
-                        ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          decoration: BoxDecoration(boxShadow: [BoxShadow(color: Color(0x1F1C1C15), offset: Offset(0.0, 16.0), blurRadius: 24.0, spreadRadius: -12.0)]),
-                          child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              color: Color(0xFFF1EEE3),
-                              child: SizedBox.shrink(),
-                            ),
-                            Image.network(
-                                  "https://lh3.googleusercontent.com/aida-public/AB6AXuC78-jV8C4mY2j6QzU9zoJxfd3a6KtIPL5wJLI3L4QhI9CJATxWQke4c8PobDT48g49jgQ-kl6hijQNEXY1A2A-Ho7uoVow48vMlA93R4gISQhoGskr2z949W5AKf6-h04ZR3keOAN7f0Tyzcw5NvQ3ZEhjvQqryaS-LjRafkaG0osKIYJUh7vWmQ__sePdLWALX9cQBxKAYrgB2q3szJwn6N2Do7q8UNpjgvMMhG0cseSLiY9dTKc",
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) => Container(
-                                    height: 180.0,
-                                    color: Color(0xFFEEEEEE),
-                                    alignment: Alignment.center,
-                                    child: Icon(Icons.broken_image, color: Color(0xFF9E9E9E)),
-                                  ),
-                                ),
-                            Text(
-                              "Aparna Baruah",
-                              style: TextStyle(fontSize: 24.0, fontWeight: FontWeight.w700),
-                            ),
-                            Text("Patient"),
-                          ],
-                        ),
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              "Personal Details",
-                              style: TextStyle(fontSize: 20.0, fontWeight: FontWeight.w700),
-                            ),
-                            Container(
-                              decoration: BoxDecoration(boxShadow: [BoxShadow(color: Color(0x1F1C1C15), offset: Offset(0.0, 16.0), blurRadius: 24.0, spreadRadius: -12.0)]),
-                              child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text("person"),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text("Full Name"),
-                                    Text("Aparna Baruah"),
-                                  ],
-                                ),
-                              ],
-                            ),
-                            ),
-                            Container(
-                              decoration: BoxDecoration(boxShadow: [BoxShadow(color: Color(0x1F1C1C15), offset: Offset(0.0, 16.0), blurRadius: 24.0, spreadRadius: -12.0)]),
-                              child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text("cake"),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text("Age"),
-                                    Text("72 years"),
-                                  ],
-                                ),
-                              ],
-                            ),
-                            ),
-                            Container(
-                              decoration: BoxDecoration(boxShadow: [BoxShadow(color: Color(0x1F1C1C15), offset: Offset(0.0, 16.0), blurRadius: 24.0, spreadRadius: -12.0)]),
-                              child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text("call"),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text("Phone"),
-                                    Text("+91 98765 43210"),
-                                  ],
-                                ),
-                              ],
-                            ),
-                            ),
-                            Container(
-                              decoration: BoxDecoration(boxShadow: [BoxShadow(color: Color(0x1F1C1C15), offset: Offset(0.0, 16.0), blurRadius: 24.0, spreadRadius: -12.0)]),
-                              child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text("language"),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text("Language"),
-                                    Text("Assamese"),
-                                  ],
-                                ),
-                              ],
-                            ),
-                            ),
-                            Container(
-                              decoration: BoxDecoration(boxShadow: [BoxShadow(color: Color(0x1F1C1C15), offset: Offset(0.0, 16.0), blurRadius: 24.0, spreadRadius: -12.0)]),
-                              child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text("emergency"),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text("Emergency Contact"),
-                                    Text("Raj (Son)"),
-                                    ElevatedButton(
-                                      onPressed: () {},
-                                      child: Text("call\n                        +91 98765 00000"),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                            ),
-                          ],
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            ElevatedButton(
-                              onPressed: () {},
-                              child: Text("edit\n                Edit Profile"),
-                            ),
-                            ElevatedButton(
-                              onPressed: () {},
-                              child: Text("swap_horiz\n                Switch to Caregiver View"),
-                            ),
-                            ElevatedButton(
-                              onPressed: () {},
-                              child: Text("logout\n                Logout"),
-                            ),
-                          ],
-                        ),
-                      ],
+                    Container(
+                      width: 100,
+                      height: 100,
+                      decoration: const BoxDecoration(
+                        color: sageLight,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.person,
+                        color: sageDark,
+                        size: 52,
+                      ),
                     ),
-                    Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            InkWell(
-                              onTap: () { /* Launch # */ },
-                              child: Text(
-                                "extension\nGames",
-                                style: TextStyle(color: Color(0xFF1976D2), decoration: TextDecoration.underline),
-                              ),
+
+                    const SizedBox(height: 16),
+
+                    _loading
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: sageDark,
                             ),
-                            InkWell(
-                              onTap: () { /* Launch # */ },
-                              child: Text(
-                                "mic\nVoice",
-                                style: TextStyle(color: Color(0xFF1976D2), decoration: TextDecoration.underline),
-                              ),
+                          )
+                        : Text(
+                            _name,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: ink,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
                             ),
-                            InkWell(
-                              onTap: () { /* Launch # */ },
-                              child: Text(
-                                "trending_up\nProgress",
-                                style: TextStyle(color: Color(0xFF1976D2), decoration: TextDecoration.underline),
-                              ),
-                            ),
-                            InkWell(
-                              onTap: () { /* Launch # */ },
-                              child: Text(
-                                "person\nProfile",
-                                style: TextStyle(color: Color(0xFF1976D2), decoration: TextDecoration.underline),
-                              ),
-                            ),
-                          ],
-                        ),
-                    Text("mic"),
+                          ),
+
+                    const SizedBox(height: 4),
+
+                    const Text(
+                      'Patient',
+                      style: TextStyle(
+                        color: muted,
+                        fontSize: 14,
+                      ),
+                    ),
                   ],
                 ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // PERSONAL DETAILS
+              const Text(
+                'Personal Details',
+                style: TextStyle(
+                  color: ink,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              _detailCard(
+                icon: Icons.person_outline,
+                title: 'Full Name',
+                value: _loading ? 'Loading...' : _name,
+              ),
+
+              const SizedBox(height: 10),
+
+              _detailCard(
+                icon: Icons.cake_outlined,
+                title: 'Age',
+                value: '72 years',
+              ),
+
+              const SizedBox(height: 10),
+
+              _detailCard(
+                icon: Icons.phone_outlined,
+                title: 'Phone',
+                value: '+91 98765 43210',
+              ),
+
+              const SizedBox(height: 10),
+
+              _detailCard(
+                icon: Icons.language,
+                title: 'Language',
+                value: 'Assamese',
+              ),
+
+              const SizedBox(height: 10),
+
+              // EMERGENCY CONTACT
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(17),
+                decoration: BoxDecoration(
+                  color: surface,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: border,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: terracotta.withValues(
+                          alpha: .11,
+                        ),
+                        borderRadius: BorderRadius.circular(13),
+                      ),
+                      child: const Icon(
+                        Icons.emergency_outlined,
+                        color: terracotta,
+                        size: 23,
+                      ),
+                    ),
+
+                    const SizedBox(width: 14),
+
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Emergency Contact',
+                            style: TextStyle(
+                              color: muted,
+                              fontSize: 12,
+                            ),
+                          ),
+                          SizedBox(height: 3),
+                          Text(
+                            'Raj (Son)',
+                            style: TextStyle(
+                              color: ink,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            '+91 98765 00000',
+                            style: TextStyle(
+                              color: muted,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    IconButton(
+                      onPressed: () {
+                        _callEmergency(context);
+                      },
+                      icon: const Icon(
+                        Icons.call,
+                        color: sageDark,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // ACCOUNT
+              const Text(
+                'Account',
+                style: TextStyle(
+                  color: ink,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              _actionButton(
+                icon: Icons.edit_outlined,
+                title: 'Edit Profile',
+                onTap: () {
+                  _comingSoon(context);
+                },
+              ),
+
+              const SizedBox(height: 10),
+
+              _actionButton(
+                icon: Icons.swap_horiz,
+                title: 'Switch to Caregiver View',
+                onTap: () {
+                  _comingSoon(context);
+                },
+              ),
+
+              const SizedBox(height: 10),
+
+              _actionButton(
+                icon: Icons.logout,
+                title: 'Logout',
+                iconColor: terracotta,
+                textColor: terracotta,
+                onTap: () {
+                  _logout(context);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _detailCard({
+    required IconData icon,
+    required String title,
+    required String value,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(17),
+      decoration: BoxDecoration(
+        color: surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: border,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: sageLight,
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: Icon(
+              icon,
+              color: sageDark,
+              size: 22,
+            ),
+          ),
+
+          const SizedBox(width: 14),
+
+          Expanded(
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: muted,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    color: ink,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _actionButton({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+    Color iconColor = sageDark,
+    Color textColor = ink,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(
+          horizontal: 17,
+          vertical: 16,
+        ),
+        decoration: BoxDecoration(
+          color: surface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: border,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color: iconColor,
+              size: 23,
+            ),
+
+            const SizedBox(width: 14),
+
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+
+            const Icon(
+              Icons.arrow_forward_ios,
+              color: muted,
+              size: 15,
+            ),
+          ],
+        ),
       ),
     );
   }

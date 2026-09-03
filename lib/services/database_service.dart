@@ -1,8 +1,11 @@
+import 'dart:convert';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/game_result.dart';
 import '../models/diary.dart';
 import '../models/reminder.dart';
 import '../models/patient.dart';
+import '../models/personalized_photo.dart';
 
 class DatabaseService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -93,6 +96,17 @@ class DatabaseService {
     await _db.collection('patients').doc(patient.id).set(patient.toMap());
   }
 
+  Future<List<Map<String, dynamic>>> getAllPatientUsers() async {
+    final snapshot = await _db
+        .collection('users')
+        .where('role', isEqualTo: 'patient')
+        .get();
+
+    return snapshot.docs
+        .map((doc) => {'id': doc.id, ...doc.data()})
+        .toList();
+  }
+
   Future<List<Patient>> getPatientsForCaregiver(String caregiverId) async {
     final snapshot = await _db
         .collection('patients')
@@ -101,6 +115,28 @@ class DatabaseService {
 
     return snapshot.docs
         .map((doc) => Patient.fromMap(doc.id, doc.data()))
+        .toList();
+  }
+
+  // ---------------- PERSONALIZED PHOTOS ----------------
+
+  String encodeImageToBase64(List<int> imageBytes) {
+    return base64Encode(imageBytes);
+  }
+
+  Future<void> savePersonalizedPhoto(PersonalizedPhoto photo) async {
+    await _db.collection('personalized_photos').add(photo.toMap());
+  }
+
+  Future<List<PersonalizedPhoto>> getPhotosForPatient(
+      String patientId) async {
+    final snapshot = await _db
+        .collection('personalized_photos')
+        .where('patientId', isEqualTo: patientId)
+        .get();
+
+    return snapshot.docs
+        .map((doc) => PersonalizedPhoto.fromMap(doc.id, doc.data()))
         .toList();
   }
 }
